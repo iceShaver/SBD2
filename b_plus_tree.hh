@@ -1,3 +1,5 @@
+#include <utility>
+
 //
 // Created by kamil on 24.11.18.
 //
@@ -8,9 +10,11 @@
 #include <string_view>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include "node.hh"
 #include "inner_node.hh"
 #include "leaf_node.hh"
+#include "record.hh"
 
 
 namespace fs = std::filesystem;
@@ -30,25 +34,55 @@ public:
     BPlusTree &operator=(BPlusTree &&) = delete;
     BPlusTree &operator=(BPlusTree const &) = delete;
 
-    BPlusTree(fs::path const &file_path, OpenMode openMode = OpenMode::USE_EXISTING);
+    BPlusTree(fs::path filePath, OpenMode openMode = OpenMode::USE_EXISTING);
 
+
+    void test();
 
 private:
-    ANode root;
-    fs::path file_path;
+    std::shared_ptr<ANode> root;
+    fs::path filePath;
     std::fstream fileHandle;
 };
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path const &file_path, OpenMode openMode)
-: root(), file_path(file_path), fileHandle{
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path filePath, OpenMode openMode)
+        : filePath(std::move(filePath)) {
     switch (openMode) {
         case OpenMode::USE_EXISTING:
+            if (!fs::is_regular_file(this->filePath))
+                throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
+            debug([this] { std::clog << "Opening file: " << fs::absolute(this->filePath) << '\n'; });
+            this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::app);
+            if(this->fileHandle.bad())
+                throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
+            this->root = std::make_shared<ALeafNode>(0, this->fileHandle);
             break;
         case OpenMode::CREATE_NEW:
-            if(fs::is_regular_file(file_path))
+            this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
+            debug([this] { std::clog << "Creating new db using file: " << fs::absolute(this->filePath) << '\n'; });
+            this->root = std::make_shared<ALeafNode>(0, this->fileHandle);
             break;
     }
+
+}
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::test() {
+    /*if (root->nodeType() == NodeType::LEAF) {
+        auto node = (ALeafNode *) root.get();
+        node->values[0] = Record{21, 45, 32};
+        node->keys[0] = 6969;
+    } else if (root->nodeType() == NodeType::INNER) {
+
+    }*/
+    std::cout << *root << '\n';
+
+    //root->unload();
+    //root->load();
+    ALeafNode leaf(0, fileHandle);
+    leaf.load();
+    std::cout << leaf << '\n';
+
 
 }
 
