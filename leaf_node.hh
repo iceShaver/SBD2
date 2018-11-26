@@ -14,9 +14,10 @@ template<typename TKey, typename TValue, size_t TDegree> class LeafNode final : 
 
 public:
     LeafNode(size_t fileOffset, std::fstream &fileHandle, std::weak_ptr<Base> const &parent = std::weak_ptr<Base>());
-    ~LeafNode() override;
     std::array<std::optional<TKey>, 2 * TDegree> keys;
     std::array<std::optional<TValue>, 2 * TDegree> values;
+
+    ~LeafNode() override;
 private:
     std::ostream &printData(std::ostream &o) const override;
     Node<TKey, TValue> &deserialize(std::vector<uint8_t> const &bytes) override;
@@ -34,10 +35,6 @@ private:
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree>::LeafNode(size_t fileOffset, std::fstream &fileHandle,
                                           std::weak_ptr<Base> const &parent) : Base(fileOffset, fileHandle, parent) {}
-
-template<typename TKey, typename TValue, size_t TDegree> LeafNode<TKey, TValue, TDegree>::~LeafNode() {
-    debug([this] { std::clog << "Exiting LeafNode: " << this->fileOffset << '\n'; });
-}
 
 template<typename TKey, typename TValue, size_t TDegree> size_t LeafNode<TKey, TValue, TDegree>::elementsSize() const {
     return ElementsSize();
@@ -64,15 +61,11 @@ std::vector<uint8_t> LeafNode<TKey, TValue, TDegree>::getData() {
 
 template<typename TKey, typename TValue, size_t TDegree>
 Node<TKey, TValue> &LeafNode<TKey, TValue, TDegree>::deserialize(std::vector<uint8_t> const &bytes) {
-    auto header = static_cast<std::bitset<8>>(bytes[0]);
-    if (header[0] == true) // is empty
-        throw std::runtime_error("Read empty page");
-    if (header[1] != static_cast<int>(NodeType::LEAF))
-        throw std::runtime_error("Read bad page");
+
     auto valuesBytePtr = (std::array<uint8_t, sizeof(this->values)> *) this->values.data();
     auto keysBytePtr = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();
-    std::copy_n(bytes.begin() + 1, keysBytePtr->size(), keysBytePtr->begin());
-    std::copy_n(bytes.begin() + 1 + keysBytePtr->size(), valuesBytePtr->size(), valuesBytePtr->begin());
+    std::copy_n(bytes.begin(), keysBytePtr->size(), keysBytePtr->begin());
+    std::copy_n(bytes.begin() + keysBytePtr->size(), valuesBytePtr->size(), valuesBytePtr->begin());
     return *this;
 }
 
@@ -88,7 +81,11 @@ std::ostream &LeafNode<TKey, TValue, TDegree>::printData(std::ostream &o) const 
 
 template<typename TKey, typename TValue, size_t TDegree>
 size_t LeafNode<TKey, TValue, TDegree>::bytesSize() const {
-    return sizeof(this->keys) + sizeof(this->values) + 1;
+    return sizeof(this->keys) + sizeof(this->values);
+}
+template<typename TKey, typename TValue, size_t TDegree>
+LeafNode<TKey, TValue, TDegree>::~LeafNode() {
+        this->unload();
 }
 
 

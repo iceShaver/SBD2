@@ -5,7 +5,7 @@
 #ifndef SBD2_CONFIG_HH
 #define SBD2_CONFIG_HH
 namespace Config{
-    bool debug = true;
+    int debugLevel = 3;
     bool verbose = false;
 }
 #endif //SBD2_CONFIG_HH

@@ -4,8 +4,6 @@
 #include <memory>
 
 int main() {
-    std::cout << "Hello, World!" << std::endl;
-
     BPlusTree<int, Record, 10, 10> t("test.bin", OpenMode::USE_EXISTING);
     t.test();
 //    std::cout << sizeof(s) << std::endl;

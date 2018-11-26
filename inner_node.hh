@@ -11,12 +11,14 @@
 
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode final : public Node<TKey, TValue> {
     using Base = Node<TKey, TValue>;
-    using BytesArray = std::array<uint8_t, InnerNode::SizeOf()>;
+    //using BytesArray = std::array<uint8_t, InnerNode::SizeOf()>;
 
 public:
+    InnerNode(size_t fileOffset, std::fstream &fileHandle, std::weak_ptr<Base> const &parent = std::weak_ptr<Base>());
     std::array<std::optional<size_t>, 2 * TDegree + 1> descendants;
     std::array<std::optional<TKey>, 2 * TDegree> keys;
 
+    ~InnerNode() override;
 private:
     std::ostream &printData(std::ostream &o) const override;
 
@@ -56,15 +58,10 @@ template<typename TKey, typename TValue, size_t TDegree> size_t InnerNode<TKey, 
 
 template<typename TKey, typename TValue, size_t TDegree>
 Node<TKey, TValue> &InnerNode<TKey, TValue, TDegree>::deserialize(std::vector<uint8_t> const &bytes) {
-    auto header = static_cast<std::bitset<8>>(bytes[0]);
-    if (header[0] == true) // is empty
-        throw std::runtime_error("Read empty page");
-    if (header[1] != static_cast<int>(NodeType::INNER))
-        throw std::runtime_error("Read bad page");
     auto descendantsBytePtr = (std::array<uint8_t, sizeof(this->descendants)> *) this->descendants.data();
     auto keysBytePtr = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();
-    std::copy_n(bytes.begin() + 1, keysBytePtr->size(), keysBytePtr->begin());
-    std::copy_n(bytes.begin() + 1 + keysBytePtr->size(), descendantsBytePtr->size(), descendantsBytePtr->begin());
+    std::copy_n(bytes.begin(), keysBytePtr->size(), keysBytePtr->begin());
+    std::copy_n(bytes.begin() + keysBytePtr->size(), descendantsBytePtr->size(), descendantsBytePtr->begin());
     return *this;
 }
 
@@ -82,7 +79,15 @@ std::ostream &InnerNode<TKey, TValue, TDegree>::printData(std::ostream &o) const
 }
 
 template<typename TKey, typename TValue, size_t TDegree> size_t InnerNode<TKey, TValue, TDegree>::bytesSize() const {
-    return sizeof(this->keys) + sizeof(this->descendants) + 1;
+    return sizeof(this->keys) + sizeof(this->descendants);
+}
+template<typename TKey, typename TValue, size_t TDegree>
+InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, std::fstream &fileHandle,
+                                            std::weak_ptr<InnerNode::Base> const &parent)
+        :Base(fileOffset, fileHandle, parent) {}
+template<typename TKey, typename TValue, size_t TDegree>
+InnerNode<TKey, TValue, TDegree>::~InnerNode() {
+        this->unload();
 }
 
 

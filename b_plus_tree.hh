@@ -37,35 +37,48 @@ public:
     BPlusTree(fs::path filePath, OpenMode openMode = OpenMode::USE_EXISTING);
 
 
+    static std::unique_ptr<ANode> ReadNode(std::fstream &fileHandle, size_t fileOffset);
+
+
     void test();
 
 private:
-    std::shared_ptr<ANode> root;
     fs::path filePath;
     std::fstream fileHandle;
+    std::shared_ptr<ANode> root;
 };
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path filePath, OpenMode openMode)
         : filePath(std::move(filePath)) {
     switch (openMode) {
+
         case OpenMode::USE_EXISTING:
             if (!fs::is_regular_file(this->filePath))
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
             debug([this] { std::clog << "Opening file: " << fs::absolute(this->filePath) << '\n'; });
-            this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::app);
-            if(this->fileHandle.bad())
+            this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::ate);
+            if (this->fileHandle.bad())
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
+            this->fileHandle.seekg(0);
+            this->fileHandle.seekp(0);
             this->root = std::make_shared<ALeafNode>(0, this->fileHandle);
+            this->root->load();
             break;
+
         case OpenMode::CREATE_NEW:
             this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
+            if (!this->fileHandle.good())
+                throw std::runtime_error("Error opening file: " + fs::absolute(this->filePath).string());
             debug([this] { std::clog << "Creating new db using file: " << fs::absolute(this->filePath) << '\n'; });
             this->root = std::make_shared<ALeafNode>(0, this->fileHandle);
+
             break;
     }
 
+    debug([this] { std::clog << *this->root << '\n'; });
 }
+
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::test() {
     /*if (root->nodeType() == NodeType::LEAF) {
@@ -75,15 +88,35 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::test() {
     } else if (root->nodeType() == NodeType::INNER) {
 
     }*/
-    std::cout << *root << '\n';
-
+    //std::cout << *root << '\n';
+    std::clog << "New node values\n";
+    ((ALeafNode *) root.get())->values[0] = Record{21, 45, 32};
+    ((ALeafNode *) root.get())->keys[0] = 6969;
     //root->unload();
     //root->load();
-    ALeafNode leaf(0, fileHandle);
-    leaf.load();
-    std::cout << leaf << '\n';
+    //ALeafNode leaf(0, fileHandle);
+    //auto leaf = ReadNode(fileHandle, 0);
+    //leaf.load();
+    //std::cout << *leaf << '\n';
+    //leaf->printData(std::cout);
 
 
+}
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+std::unique_ptr<typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ANode>
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ReadNode(std::fstream &fileHandle, size_t fileOffset) {
+    fileHandle.seekg(fileOffset);
+    char header;
+    fileHandle.read(&header, 1);
+    if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node!");
+    std::unique_ptr<ANode> result = nullptr;
+    if (std::bitset<8>(header)[1] == 0)
+        result = std::make_unique<AInnerNode>(InnerNode<TKey, TValue, TInnerNodeDegree>(fileOffset, fileHandle));
+    if (std::bitset<8>(header)[1] == 1)
+        result = std::make_unique<ALeafNode>(LeafNode<TKey, TValue, TLeafNodeDegree>(fileOffset, fileHandle));
+    result->load();
+    return result;
 }
 
 
