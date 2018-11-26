@@ -34,7 +34,7 @@ public:
     virtual std::ostream &printData(std::ostream &o) const = 0;
     Node &load();
     Node &unload();
-
+    Node &markEmpty();
 
 protected:
 
@@ -111,6 +111,13 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &os, Node<TKey, TValue> const &node) {
     os << "Node: " << node.fileOffset << '\n';
     return node.printData(os);
+}
+
+template<typename TKey, typename TValue>
+Node<TKey, TValue> &Node<TKey, TValue>::markEmpty() {
+    this->changed = true;
+    this->empty = true;
+    return *this;
 }
 
 

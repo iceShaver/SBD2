@@ -4,7 +4,7 @@
 #include <memory>
 
 int main() {
-    BPlusTree<int, Record, 10, 10> t("test.bin", OpenMode::USE_EXISTING);
+    BPlusTree<int, Record, 10, 10> t("test.bin", OpenMode::CREATE_NEW);
     t.test();
 //    std::cout << sizeof(s) << std::endl;
 

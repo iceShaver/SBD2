@@ -38,7 +38,7 @@ public:
 
 
     static std::unique_ptr<ANode> ReadNode(std::fstream &fileHandle, size_t fileOffset);
-
+    size_t AllocateMemory(NodeType nodeType);
 
     void test();
 
@@ -98,6 +98,21 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::test() {
     //auto leaf = ReadNode(fileHandle, 0);
     //leaf.load();
     //std::cout << *leaf << '\n';
+    auto n1 = ALeafNode(AllocateMemory(NodeType::LEAF), this->fileHandle);
+    auto n2 = ALeafNode(AllocateMemory(NodeType::LEAF), this->fileHandle);
+    auto n3 = ALeafNode(AllocateMemory(NodeType::LEAF), this->fileHandle);
+    auto n4 = AInnerNode(AllocateMemory(NodeType::INNER), this->fileHandle);
+    auto n5 = AInnerNode(AllocateMemory(NodeType::INNER), this->fileHandle);
+    auto n6 = AInnerNode(AllocateMemory(NodeType::INNER), this->fileHandle);
+    n2.markEmpty().unload();
+    n5.markEmpty().unload();
+    n6.markEmpty().unload();
+    auto newOffset = AllocateMemory(NodeType::LEAF);
+    auto ne1wOffset = AllocateMemory(NodeType::LEAF);
+    auto new2Offset = AllocateMemory(NodeType::LEAF);
+    auto newO3ffset = AllocateMemory(NodeType::INNER);
+    auto newOf4fset = AllocateMemory(NodeType::INNER);
+    auto newOff5set = AllocateMemory(NodeType::INNER);
     //leaf->printData(std::cout);
 
 
@@ -111,12 +126,40 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ReadNode(std::fstrea
     fileHandle.read(&header, 1);
     if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node!");
     std::unique_ptr<ANode> result = nullptr;
-    if (std::bitset<8>(header)[1] == 0)
+    if (std::bitset<8>(header)[1] == static_cast<int>(NodeType::INNER))
         result = std::make_unique<AInnerNode>(InnerNode<TKey, TValue, TInnerNodeDegree>(fileOffset, fileHandle));
-    if (std::bitset<8>(header)[1] == 1)
+    if (std::bitset<8>(header)[1] == static_cast<int>(NodeType::LEAF))
         result = std::make_unique<ALeafNode>(LeafNode<TKey, TValue, TLeafNodeDegree>(fileOffset, fileHandle));
     result->load();
     return result;
+}
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+size_t BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateMemory(NodeType nodeType) {
+    std::fpos<mbstate_t> result;
+    this->fileHandle.seekg(0);
+    char header;
+    while (true) {
+        this->fileHandle.read(&header, 1);
+        if (this->fileHandle.eof()) {
+            this->fileHandle.clear();
+            result = this->fileHandle.tellg();
+            break;
+        }
+        if (std::bitset<8>(header)[1] == static_cast<int>(nodeType) && std::bitset<8>(header)[0] == true) {
+            result = this->fileHandle.tellg() - 1;
+            break;
+        }
+        this->fileHandle.seekg((size_t) this->fileHandle.tellg() +
+                               ((std::bitset<8>(header)[1] == static_cast<int>(NodeType::LEAF))
+                                ? ALeafNode::BytesSize() : AInnerNode::BytesSize()) - 1);
+    }
+    if (result < 0) throw std::runtime_error("Unable to allocate disk memory");
+    auto offset = static_cast<size_t>(result);
+    // This is only for purpose of mark space as occupied, TODO: do something more efficient e.g.: create header only
+    if(nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).unload();
+    else AInnerNode(offset, this->fileHandle).unload();
+    return offset;
 }
 
 

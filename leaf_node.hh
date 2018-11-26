@@ -11,11 +11,13 @@
 
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode final : public Node<TKey, TValue> {
     using Base = Node<TKey, TValue>;
-
+    using KeysCollection = std::array<std::optional<TKey>, 2 * TDegree>;
+    using ValuesCollection =  std::array<std::optional<TValue>, 2 * TDegree>;
 public:
     LeafNode(size_t fileOffset, std::fstream &fileHandle, std::weak_ptr<Base> const &parent = std::weak_ptr<Base>());
-    std::array<std::optional<TKey>, 2 * TDegree> keys;
-    std::array<std::optional<TValue>, 2 * TDegree> values;
+    KeysCollection keys;
+    ValuesCollection values;
+    static size_t BytesSize();
 
     ~LeafNode() override;
 private:
@@ -83,9 +85,15 @@ template<typename TKey, typename TValue, size_t TDegree>
 size_t LeafNode<TKey, TValue, TDegree>::bytesSize() const {
     return sizeof(this->keys) + sizeof(this->values);
 }
+
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree>::~LeafNode() {
         this->unload();
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+size_t LeafNode<TKey, TValue, TDegree>::BytesSize() {
+    return sizeof(KeysCollection) + sizeof(ValuesCollection);
 }
 
 

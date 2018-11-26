@@ -11,12 +11,15 @@
 
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode final : public Node<TKey, TValue> {
     using Base = Node<TKey, TValue>;
+    using DescendantsCollection = std::array<std::optional<size_t>, 2 * TDegree + 1>;
+    using KeysCollection = std::array<std::optional<TKey>, 2 * TDegree>;
     //using BytesArray = std::array<uint8_t, InnerNode::SizeOf()>;
 
 public:
     InnerNode(size_t fileOffset, std::fstream &fileHandle, std::weak_ptr<Base> const &parent = std::weak_ptr<Base>());
-    std::array<std::optional<size_t>, 2 * TDegree + 1> descendants;
-    std::array<std::optional<TKey>, 2 * TDegree> keys;
+    DescendantsCollection descendants;
+    KeysCollection keys;
+    static size_t BytesSize();
 
     ~InnerNode() override;
 private:
@@ -79,7 +82,7 @@ std::ostream &InnerNode<TKey, TValue, TDegree>::printData(std::ostream &o) const
 }
 
 template<typename TKey, typename TValue, size_t TDegree> size_t InnerNode<TKey, TValue, TDegree>::bytesSize() const {
-    return sizeof(this->keys) + sizeof(this->descendants);
+    return BytesSize();
 }
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, std::fstream &fileHandle,
@@ -88,6 +91,10 @@ InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, std::fstream &fil
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree>::~InnerNode() {
         this->unload();
+}
+template<typename TKey, typename TValue, size_t TDegree>
+size_t InnerNode<TKey, TValue, TDegree>::BytesSize() {
+    return sizeof(DescendantsCollection) + sizeof(KeysCollection);
 }
 
 
