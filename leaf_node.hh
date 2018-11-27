@@ -14,14 +14,19 @@ template<typename TKey, typename TValue, size_t TDegree> class LeafNode final : 
     using KeysCollection = std::array<std::optional<TKey>, 2 * TDegree>;
     using ValuesCollection =  std::array<std::optional<TValue>, 2 * TDegree>;
 public:
-    LeafNode(size_t fileOffset, std::fstream &fileHandle, std::weak_ptr<Base> const &parent = std::weak_ptr<Base>());
+    LeafNode(size_t fileOffset, std::fstream &fileHandle, std::shared_ptr<Base> parent = nullptr);
     KeysCollection keys;
     ValuesCollection values;
     static size_t BytesSize();
     LeafNode &insert(TKey const &key, TValue const &value);
+    bool full() const override;
+    std::vector<std::pair<TKey, TValue>> getRecords() const;
+    LeafNode &setRecords(std::vector<std::pair<TKey, TValue>> const &records);
+    LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
+                         typename std::vector<std::pair<TKey, TValue>>::iterator it2);
+
 protected:
     size_t fillElementsSize() const override;
-    bool isFull() const override;
 public:
 
     ~LeafNode() override;
@@ -29,6 +34,7 @@ private:
     std::ostream &printData(std::ostream &o) const override;
     Node<TKey, TValue> &deserialize(std::vector<uint8_t> const &bytes) override;
     std::vector<uint8_t> getData() override;
+
 protected:
     size_t bytesSize() const override;
 private:
@@ -41,7 +47,7 @@ private:
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree>::LeafNode(size_t fileOffset, std::fstream &fileHandle,
-                                          std::weak_ptr<Base> const &parent) : Base(fileOffset, fileHandle, parent) {}
+                                          std::shared_ptr<Base> parent) : Base(fileOffset, fileHandle, parent) {}
 
 template<typename TKey, typename TValue, size_t TDegree> size_t LeafNode<TKey, TValue, TDegree>::elementsSize() const {
     return ElementsSize();
@@ -108,20 +114,55 @@ size_t LeafNode<TKey, TValue, TDegree>::fillElementsSize() const {
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
-bool LeafNode<TKey, TValue, TDegree>::isFull() const {
+bool LeafNode<TKey, TValue, TDegree>::full() const {
     return !static_cast<bool>(std::find(this->keys.begin(), this->keys.end(), std::nullopt));
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &LeafNode<TKey, TValue, TDegree>::insert(TKey const &key, TValue const &value) {
-    if (this->isFull()) throw std::runtime_error("Tried to add element to full node");
-    auto tmpKeys = std::vector<TKey>(this->keys);
-    auto tmpVals = std::vector<TValue>(this->keys);
-    auto posIterator = tmpKeys.insert(std::upper_bound(tmpKeys.begin(), tmpKeys.end(), key), key);
-    auto position = std::distance(tmpKeys.begin(), posIterator);
-    tmpVals.insert(position + position, value);
-    this->keys = tmpKeys;
-    this->values = tmpVals;
+    if (this->full()) throw std::runtime_error("Tried to add element to full node");
+    auto records = this->getRecords();
+    records.insert(std::upper_bound(records.begin(), records.end(), std::pair(key, value),
+            [](auto x, auto y){ return x.first < y.first;}), std::pair(key, value));
+    this->setRecords(records);
+    return *this;
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+std::vector<std::pair<TKey, TValue>>
+LeafNode<TKey, TValue, TDegree>::getRecords() const {
+    auto result = std::vector<std::pair<TKey, TValue>>();
+    for (int i = 0; i < this->keys.size(); ++i) {
+        if (!this->keys[i]) return result;
+        result.emplace_back(*this->keys[i], *this->values[i]);
+    }
+    return std::move(result);
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+LeafNode<TKey, TValue, TDegree> &
+LeafNode<TKey, TValue, TDegree>::setRecords(std::vector<std::pair<TKey, TValue>> const &records) {
+    this->changed = true;
+    KeysCollection keys;
+    ValuesCollection values;
+    std::transform(records.begin(), records.end(), keys.begin(), [](auto x) { return x.first; });
+    std::transform(records.begin(), records.end(), values.begin(), [](auto x) { return x.second; });
+    this->keys = std::move(keys);
+    this->values = std::move(values);
+    return *this;
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+LeafNode<TKey, TValue, TDegree> &
+LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
+                                            typename std::vector<std::pair<TKey, TValue>>::iterator it2) {
+    this->changed = true;
+    KeysCollection keys;
+    ValuesCollection values;
+    std::transform(it1, it2, keys.begin(), [](auto x) { return x.first; });
+    std::transform(it1, it2, values.begin(), [](auto x) { return x.second; });
+    this->keys = std::move(keys);
+    this->values = std::move(values);
     return *this;
 }
 

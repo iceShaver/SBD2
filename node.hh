@@ -28,7 +28,7 @@ template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &
 template<typename TKey, typename TValue> class Node {
 public:
     Node() = delete;
-    Node(size_t fileOffset, std::fstream &fileHandle, std::weak_ptr<Node> const &parent = std::weak_ptr<Node>());
+    Node(size_t fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent = nullptr);
     virtual ~Node();
 
     friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
@@ -38,20 +38,21 @@ public:
     Node &load();
     Node &unload();
     Node &markEmpty();
+    virtual bool full() const = 0;
+    //virtual void changeKey(size_t aPtr,size_t bPtr, TKey const & key) = 0;
+    std::shared_ptr<Node> parent;
+    size_t fileOffset{};
 
 protected:
 
     virtual size_t elementsSize() const = 0;
     virtual size_t fillElementsSize() const = 0;
-    virtual bool isFull() const = 0;
     virtual size_t bytesSize() const = 0;
     virtual std::vector<uint8_t> getData() = 0;
     std::vector<uint8_t> serialize();
     virtual Node &deserialize(std::vector<uint8_t> const &bytes) = 0;
     void remove();
     std::fstream &fileHandle;
-    size_t fileOffset{};
-    std::weak_ptr<Node> parent;
     bool empty;
     bool changed;
 };
@@ -61,8 +62,8 @@ protected:
 
 
 template<typename TKey, typename TValue>
-Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std::weak_ptr<Node> const &parent)
-        : fileHandle(fileHandle), fileOffset(fileOffset), parent(parent), empty(false), changed(true) {
+Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent)
+        : fileHandle(fileHandle), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(true) {
     debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; });
 }
 

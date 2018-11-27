@@ -35,8 +35,8 @@ Record::Record(uint64_t student_id, uint8_t grade1, uint8_t grade2, uint8_t grad
 Record::Record(uint8_t grade1, uint8_t grade2, uint8_t grade3) : Record(record_id_counter++, grade1, grade2, grade3) {}
 
 std::ostream &operator<<(std::ostream &os, const Record &record) {
-    auto col_width = 5;
-    return os << std::setw(col_width) << record.get_student_id()
+    auto col_width = 3;
+    return os << record.get_student_id()
               << std::setw(col_width) << +record.get_grade(1)
               << std::setw(col_width) << +record.get_grade(2)
               << std::setw(col_width) << +record.get_grade(3)
