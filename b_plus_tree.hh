@@ -38,9 +38,12 @@ public:
 
 
     static std::unique_ptr<ANode> ReadNode(std::fstream &fileHandle, size_t fileOffset);
-    size_t AllocateMemory(NodeType nodeType);
+    size_t AllocateDiskMemory(NodeType nodeType, std::optional<size_t> specifiedOffset = std::nullopt);
 
     void test();
+
+
+    BPlusTree &addRecord(TKey const &key, TValue const &value, std::shared_ptr<ANode> node = nullptr);
 
 private:
     fs::path filePath;
@@ -62,7 +65,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path f
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
             this->fileHandle.seekg(0);
             this->fileHandle.seekp(0);
-            this->root = std::make_shared<ALeafNode>(0, this->fileHandle);
+            this->root = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF, 0), this->fileHandle);
             this->root->load();
             break;
 
@@ -71,8 +74,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path f
             if (!this->fileHandle.good())
                 throw std::runtime_error("Error opening file: " + fs::absolute(this->filePath).string());
             debug([this] { std::clog << "Creating new db using file: " << fs::absolute(this->filePath) << '\n'; });
-            this->root = std::make_shared<ALeafNode>(0, this->fileHandle);
-
+            this->root = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF, 0), this->fileHandle);
             break;
     }
 
@@ -98,21 +100,21 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::test() {
     //auto leaf = ReadNode(fileHandle, 0);
     //leaf.load();
     //std::cout << *leaf << '\n';
-    auto n1 = ALeafNode(AllocateMemory(NodeType::LEAF), this->fileHandle);
-    auto n2 = ALeafNode(AllocateMemory(NodeType::LEAF), this->fileHandle);
-    auto n3 = ALeafNode(AllocateMemory(NodeType::LEAF), this->fileHandle);
-    auto n4 = AInnerNode(AllocateMemory(NodeType::INNER), this->fileHandle);
-    auto n5 = AInnerNode(AllocateMemory(NodeType::INNER), this->fileHandle);
-    auto n6 = AInnerNode(AllocateMemory(NodeType::INNER), this->fileHandle);
+    auto n1 = ALeafNode(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
+    auto n2 = ALeafNode(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
+    auto n3 = ALeafNode(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
+    auto n4 = AInnerNode(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+    auto n5 = AInnerNode(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+    auto n6 = AInnerNode(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
     n2.markEmpty().unload();
     n5.markEmpty().unload();
     n6.markEmpty().unload();
-    auto newOffset = AllocateMemory(NodeType::LEAF);
-    auto ne1wOffset = AllocateMemory(NodeType::LEAF);
-    auto new2Offset = AllocateMemory(NodeType::LEAF);
-    auto newO3ffset = AllocateMemory(NodeType::INNER);
-    auto newOf4fset = AllocateMemory(NodeType::INNER);
-    auto newOff5set = AllocateMemory(NodeType::INNER);
+    auto newOffset = AllocateDiskMemory(NodeType::LEAF);
+    auto ne1wOffset = AllocateDiskMemory(NodeType::LEAF);
+    auto new2Offset = AllocateDiskMemory(NodeType::LEAF);
+    auto newO3ffset = AllocateDiskMemory(NodeType::INNER);
+    auto newOf4fset = AllocateDiskMemory(NodeType::INNER);
+    auto newOff5set = AllocateDiskMemory(NodeType::INNER);
     //leaf->printData(std::cout);
 
 
@@ -134,8 +136,12 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ReadNode(std::fstrea
     return result;
 }
 
+// TODO: use some index to make it work faster
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-size_t BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateMemory(NodeType nodeType) {
+size_t
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(NodeType nodeType,
+                                                                               std::optional<size_t> specifiedOffset) {
+    if (specifiedOffset) return *specifiedOffset;
     std::fpos<mbstate_t> result;
     this->fileHandle.seekg(0);
     char header;
@@ -157,9 +163,30 @@ size_t BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateMemor
     if (result < 0) throw std::runtime_error("Unable to allocate disk memory");
     auto offset = static_cast<size_t>(result);
     // This is only for purpose of mark space as occupied, TODO: do something more efficient e.g.: create header only
-    if(nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).unload();
+    if (nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).unload();
     else AInnerNode(offset, this->fileHandle).unload();
     return offset;
+}
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const &key, TValue const &value,
+                                                                      std::shared_ptr<ANode> node) {
+    if (!node) node = this->root;
+    if (node->nodeType() == NodeType::LEAF) {
+        auto leafNode = std::dynamic_pointer_cast<ALeafNode>(node);
+        if (leafNode->isFull()) {
+            // try to compensate
+            // if not -> split
+        } else { // leaf node is not full
+            leafNode.insert(key, value);
+        }
+    } else if(node->nodeType() == NodeType::INNER){
+        // find proper descendant, read it, fill with parent pointer
+        // addRecord(key, value, descendant)
+    }
+
+    return *this;
 }
 
 

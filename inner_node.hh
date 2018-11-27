@@ -20,6 +20,10 @@ public:
     DescendantsCollection descendants;
     KeysCollection keys;
     static size_t BytesSize();
+protected:
+    size_t fillElementsSize() const override;
+    bool isFull() const override;
+public:
 
     ~InnerNode() override;
 private:
@@ -84,17 +88,30 @@ std::ostream &InnerNode<TKey, TValue, TDegree>::printData(std::ostream &o) const
 template<typename TKey, typename TValue, size_t TDegree> size_t InnerNode<TKey, TValue, TDegree>::bytesSize() const {
     return BytesSize();
 }
+
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, std::fstream &fileHandle,
                                             std::weak_ptr<InnerNode::Base> const &parent)
         :Base(fileOffset, fileHandle, parent) {}
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree>::~InnerNode() {
-        this->unload();
+    this->unload();
 }
+
 template<typename TKey, typename TValue, size_t TDegree>
 size_t InnerNode<TKey, TValue, TDegree>::BytesSize() {
     return sizeof(DescendantsCollection) + sizeof(KeysCollection);
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+size_t InnerNode<TKey, TValue, TDegree>::fillElementsSize() const {
+    return static_cast<size_t>(std::count_if(this->descendants.begin(), this->descendants.end(),
+                                             [](auto x) { return x != std::nullopt; }));
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+bool InnerNode<TKey, TValue, TDegree>::isFull() const {
+    return !static_cast<bool>(std::find(this->descendants.begin(), this->descendants.end(), std::nullopt));
 }
 
 

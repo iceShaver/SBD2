@@ -22,6 +22,9 @@ template<typename TKey, typename TValue> class Node;
 
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &, Node<TKey, TValue> const &);
 
+
+
+
 template<typename TKey, typename TValue> class Node {
 public:
     Node() = delete;
@@ -39,6 +42,8 @@ public:
 protected:
 
     virtual size_t elementsSize() const = 0;
+    virtual size_t fillElementsSize() const = 0;
+    virtual bool isFull() const = 0;
     virtual size_t bytesSize() const = 0;
     virtual std::vector<uint8_t> getData() = 0;
     std::vector<uint8_t> serialize();
@@ -50,6 +55,9 @@ protected:
     bool empty;
     bool changed;
 };
+
+
+
 
 
 template<typename TKey, typename TValue>

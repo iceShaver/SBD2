@@ -18,6 +18,11 @@ public:
     KeysCollection keys;
     ValuesCollection values;
     static size_t BytesSize();
+    LeafNode &insert(TKey const &key, TValue const &value);
+protected:
+    size_t fillElementsSize() const override;
+    bool isFull() const override;
+public:
 
     ~LeafNode() override;
 private:
@@ -88,12 +93,36 @@ size_t LeafNode<TKey, TValue, TDegree>::bytesSize() const {
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree>::~LeafNode() {
-        this->unload();
+    this->unload();
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
 size_t LeafNode<TKey, TValue, TDegree>::BytesSize() {
     return sizeof(KeysCollection) + sizeof(ValuesCollection);
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+size_t LeafNode<TKey, TValue, TDegree>::fillElementsSize() const {
+    return static_cast<size_t>(std::count_if(this->keys.begin(), this->keys.end(),
+                                             [](auto x) { return x != std::nullopt; }));
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+bool LeafNode<TKey, TValue, TDegree>::isFull() const {
+    return !static_cast<bool>(std::find(this->keys.begin(), this->keys.end(), std::nullopt));
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+LeafNode<TKey, TValue, TDegree> &LeafNode<TKey, TValue, TDegree>::insert(TKey const &key, TValue const &value) {
+    if (this->isFull()) throw std::runtime_error("Tried to add element to full node");
+    auto tmpKeys = std::vector<TKey>(this->keys);
+    auto tmpVals = std::vector<TValue>(this->keys);
+    auto posIterator = tmpKeys.insert(std::upper_bound(tmpKeys.begin(), tmpKeys.end(), key), key);
+    auto position = std::distance(tmpKeys.begin(), posIterator);
+    tmpVals.insert(position + position, value);
+    this->keys = tmpKeys;
+    this->values = tmpVals;
+    return *this;
 }
 
 
