@@ -39,8 +39,7 @@ std::ostream &operator<<(std::ostream &os, const Record &record) {
     return os << record.get_student_id()
               << std::setw(col_width) << +record.get_grade(1)
               << std::setw(col_width) << +record.get_grade(2)
-              << std::setw(col_width) << +record.get_grade(3)
-              << std::setw(col_width) << std::setprecision(2);
+              << std::setw(col_width) << +record.get_grade(3);
 }
 
 uint64_t Record::get_student_id() const { return data >> 24; }

@@ -23,8 +23,6 @@ template<typename TKey, typename TValue> class Node;
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &, Node<TKey, TValue> const &);
 
 
-
-
 template<typename TKey, typename TValue> class Node {
 public:
     Node() = delete;
@@ -55,15 +53,14 @@ protected:
     std::fstream &fileHandle;
     bool empty;
     bool changed;
+    bool loaded;
 };
-
-
-
 
 
 template<typename TKey, typename TValue>
 Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent)
-        : fileHandle(fileHandle), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(true) {
+        : fileHandle(fileHandle), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(false),
+          loaded(false) {
     debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; });
 }
 
@@ -75,7 +72,8 @@ template<typename TKey, typename TValue> Node<TKey, TValue>::~Node() {
 template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
     debug([this] { std::clog << "Removing node: " << fileOffset << '\n'; });
     this->empty = true;
-    this->uload();
+    this->changed = true;
+    this->unload();
 }
 
 template<typename TKey, typename TValue> std::vector<uint8_t> Node<TKey, TValue>::serialize() {
@@ -91,35 +89,47 @@ template<typename TKey, typename TValue> std::vector<uint8_t> Node<TKey, TValue>
 }
 
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::load() {
+    debug([this] { std::clog << "Loading node at: " << this->fileOffset << '\n'; }, 3);
+    this->fileHandle.flush();
+    if(!this->fileHandle.good())
+        throw std::runtime_error("loading node error");
     this->fileHandle.seekg(this->fileOffset);
+    auto size = this->bytesSize();
     auto buffer = std::vector<uint8_t>();
     buffer.resize(this->bytesSize());
     char header;
+    if (!this->fileHandle.good() || this->fileHandle.bad())
+        throw std::runtime_error("loading node error");
     this->fileHandle.read(&header, 1);
     this->fileHandle.read(reinterpret_cast<char *>(buffer.data()), this->bytesSize());
+    if (!this->fileHandle.good())
+        throw std::runtime_error("loading node error");
     this->deserialize(buffer);
     this->changed = false;
+    this->loaded = true;
     return *this;
 }
 
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::unload() {
     if (!changed) {
-        debug([this] { std::clog << "Node unchanged\n"; });
+        debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 4);
         return *this;
     }
-    debug([this] { std::clog << "Node changed, saving at: " << this->fileOffset << '\n'; });
+    debug([this] { std::clog << "Unloading node at: " << this->fileOffset << '\n'; }, 3);
     this->fileHandle.seekp(this->fileOffset);
     auto bytes = this->serialize();
     fileHandle.clear();
     this->fileHandle.write(reinterpret_cast<char *>(bytes.data()), this->bytesSize() + 1);
     if (!this->fileHandle.good())debug([] { std::clog << "Error while writing node\n"; });
-    long ile = this->fileHandle.tellp() - fileOffset;
+    this->changed = false;
+    this->loaded = false;
     return *this;
 }
 
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &os, Node<TKey, TValue> const &node) {
-    os << "Node: " << node.fileOffset << '\n';
-    return node.printData(os);
+    os << "Node: " << node.fileOffset << " { ";
+    node.printData(os) << "}";
+    return os;
 }
 
 template<typename TKey, typename TValue>

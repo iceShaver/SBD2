@@ -74,7 +74,7 @@ std::vector<uint8_t> LeafNode<TKey, TValue, TDegree>::getData() {
 
 template<typename TKey, typename TValue, size_t TDegree>
 Node<TKey, TValue> &LeafNode<TKey, TValue, TDegree>::deserialize(std::vector<uint8_t> const &bytes) {
-
+    this->changed = true;
     auto valuesBytePtr = (std::array<uint8_t, sizeof(this->values)> *) this->values.data();
     auto keysBytePtr = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();
     std::copy_n(bytes.begin(), keysBytePtr->size(), keysBytePtr->begin());
@@ -87,7 +87,7 @@ std::ostream &LeafNode<TKey, TValue, TDegree>::printData(std::ostream &o) const 
     int i = 0;
     auto key = this->keys[i];
     auto value = this->values[i];
-    do o << "D:" << *key << ' ' << "K:" << *value << ' ';
+    do o << "[K:" << *key << ' ' << "V:" << *value << "] ";
     while (++i, (key = this->keys[i]) && (value = this->values[i]));
     return o;
 }
@@ -99,7 +99,7 @@ size_t LeafNode<TKey, TValue, TDegree>::bytesSize() const {
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree>::~LeafNode() {
-    this->unload();
+    this->unload(); // don't touch this!
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
@@ -115,15 +115,18 @@ size_t LeafNode<TKey, TValue, TDegree>::fillElementsSize() const {
 
 template<typename TKey, typename TValue, size_t TDegree>
 bool LeafNode<TKey, TValue, TDegree>::full() const {
-    return !static_cast<bool>(std::find(this->keys.begin(), this->keys.end(), std::nullopt));
+    return std::find(this->keys.begin(), this->keys.end(), std::nullopt) == this->keys.end();
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &LeafNode<TKey, TValue, TDegree>::insert(TKey const &key, TValue const &value) {
+    if (std::find(this->keys.begin(), this->keys.end(), key) != this->keys.end())
+        throw std::runtime_error("Record with given key already exists");
     if (this->full()) throw std::runtime_error("Tried to add element to full node");
+    this->changed = true;
     auto records = this->getRecords();
     records.insert(std::upper_bound(records.begin(), records.end(), std::pair(key, value),
-            [](auto x, auto y){ return x.first < y.first;}), std::pair(key, value));
+                                    [](auto x, auto y) { return x.first < y.first; }), std::pair(key, value));
     this->setRecords(records);
     return *this;
 }

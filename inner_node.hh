@@ -106,7 +106,7 @@ InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, std::fstream &fil
 
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree>::~InnerNode() {
-    this->unload();
+    this->unload(); // don't touch this!
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
@@ -164,7 +164,7 @@ template<typename TKey, typename TValue, size_t TDegree>
 TKey InnerNode<TKey, TValue, TDegree>::getKeyBetweenPointers(size_t aPtr, size_t bPtr) {
     auto beginWith = std::min(aPtr, bPtr);
     auto foundIter = std::find(this->descendants.begin(), this->descendants.end(), beginWith);
-    if (foundIter == this->descendants.end()) throw std::runtime_error("Couldnt find given ptr in parent!");
+    if (foundIter == this->descendants.end()) throw std::runtime_error("Couldn't find given ptr in parent!");
     auto result = this->keys[this->descendants.begin() - foundIter + 1];
     if (!result) throw std::runtime_error("Searched pointer does not exists");
     return *result;
