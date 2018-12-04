@@ -1,4 +1,3 @@
-#include <utility>
 
 //
 // Created by kamil on 24.11.18.
@@ -12,6 +11,7 @@
 #include <fstream>
 #include <algorithm>
 #include <memory>
+#include <utility>
 #include "node.hh"
 #include "inner_node.hh"
 #include "leaf_node.hh"
@@ -204,7 +204,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const &key, TValue const &value,
                                                                       std::shared_ptr<ANode> node) {
     if (!node) node = this->root;
-    else node->load();// TODO: check if this is necessary
+    //else node->load();// TODO: check if this is necessary
+
     debug([&] {
         std::clog << "Adding record to node at: " << node->fileOffset << '\n';
         std::clog << *node << '\n'; // Continue here
@@ -212,13 +213,14 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const
 
     if (node->nodeType() == NodeType::LEAF) {
         auto leafNode = std::dynamic_pointer_cast<ALeafNode>(node);
-        if (leafNode->full())
-            tryCompensateAndAddRecord(node, key, value) || (splitAndAddRecord(node, key, value), 0);
-        else
+        if (leafNode->full()) {
+            if (!tryCompensateAndAddRecord(node, key, value)) {
+                splitAndAddRecord(node, key, value);
+            }
+        } else
             leafNode->insert(key, value);
 
     } else if (node->nodeType() == NodeType::INNER) { // if inner node -> go deeper
-
         // find proper descendant, load it, fill with parent pointer
         auto innerNode = std::dynamic_pointer_cast<AInnerNode>(node);
         // find key >= inserted key
@@ -240,7 +242,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const
         descendant->parent = node;
         this->addRecord(key, value, descendant);
     }
-
     return *this;
 }
 
@@ -321,6 +322,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(st
         newNode = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
     else
         newNode = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+
     if (node == root) {
         auto newRoot = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
         //auto oldRoot = std::dynamic_pointer_cast<ALeafNode>(this->root)
@@ -332,6 +334,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(st
         this->updateConfigHeader(); // TODO: check if this is necessary
         return;
     }
+
     if (node->parent == nullptr) throw std::runtime_error("Internal database error: nullptr node parent");
     auto middleKey = node->compensateWithAndReturnMiddleKey(newNode, key, value, newNodeOffset);
     auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
@@ -382,7 +385,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printNodeAndDescenda
         }
     }
 }
-
 
 
 #endif //SBD2_B_PLUS_TREE_HH

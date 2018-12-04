@@ -144,7 +144,7 @@ InnerNode<TKey, TValue, TDegree>::fillElementsSize() const {
 template<typename TKey, typename TValue, size_t TDegree>
 bool
 InnerNode<TKey, TValue, TDegree>::full() const {
-    return !static_cast<bool>(std::find(this->descendants.begin(), this->descendants.end(), std::nullopt));
+    return std::find(this->descendants.begin(), this->descendants.end(), std::nullopt) == this->descendants.end();
 }
 
 
@@ -260,18 +260,24 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
     if (nodeOffset == 0)
         throw std::invalid_argument("Internal DB error: InnerNode compensation failed: nodeOffset cannot be 0");
+    //if (this->parent == nullptr)
+    //    throw std::invalid_argument("Internal DB error: InnerNode compensation failed: parent node is NULL");
     auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
-    auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyAfterPointer(this->fileOffset);
     // get first node data
     auto[allKeys, allDescendants] = this->getEntries();
     auto[otherKeys, otherDescendants] = otherNode->getEntries();
     // add key from parent
-    allKeys.push_back(parentKey);
+    if (this->parent) {
+        auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyAfterPointer(this->fileOffset);
+        allKeys.push_back(parentKey);
+    }
     // add keys from second node
     allKeys.insert(allKeys.end(), otherKeys.begin(), otherKeys.end());
     // add new key
-    auto insertPosition = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key) - allKeys.begin();
-    allDescendants.insert(allDescendants.begin() + insertPosition, nodeOffset);
+    auto insertIterator = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key); // don't touch this
+    auto insertPosition = insertIterator - allKeys.begin();
+    // here error is
+    allDescendants.insert(allDescendants.begin() + insertPosition + 1, nodeOffset);
     // add descendants from other node
     allDescendants.insert(allDescendants.end(), otherDescendants.begin(), otherDescendants.end());
 
