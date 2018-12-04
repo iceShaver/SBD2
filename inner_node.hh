@@ -25,7 +25,7 @@ public:
     InnerNode &setKeys(typename std::vector<TKey>::iterator begIt, typename std::vector<TKey>::iterator endIt);
     InnerNode &setDescendants(typename std::vector<size_t>::iterator begIt,
                               typename std::vector<size_t>::iterator endIt);
-    TKey getKeyAfterPointer(size_t aPtr);
+    std::optional<TKey> getKeyAfterPointer(std::optional<size_t> aPtr);
     TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value,
                                           size_t nodeOffset) override;
     bool full() const override;
@@ -99,10 +99,11 @@ std::ostream &
 InnerNode<TKey, TValue, TDegree>::print(std::ostream &o) const {
     o << "INode: " << this->fileOffset << " { ";
     auto[keys, descendants] = this->getEntries();
-    for (int i = 0; i < keys.size(); ++i) {
+    int i;
+    for (i = 0; i < keys.size(); ++i) {
         o << "D:" << descendants[i] << ' ' << "K:" << keys[i] << ' ';
     }
-    return o << "D:" << *descendants.rbegin() << '}';
+    return o << "D:" << descendants[i] << '}'; // TODO: changeit after the fix
 }
 
 
@@ -192,14 +193,15 @@ InnerNode<TKey, TValue, TDegree>::changeKey(size_t aPtr, TKey const &key) {
 
 // TODO: this is nonsens
 template<typename TKey, typename TValue, size_t TDegree>
-TKey
-InnerNode<TKey, TValue, TDegree>::getKeyAfterPointer(size_t aPtr) {
+std::optional<TKey>
+InnerNode<TKey, TValue, TDegree>::getKeyAfterPointer(std::optional<size_t> aPtr) {
     auto foundIter = std::find(this->descendants.begin(), this->descendants.end(), aPtr);
     if (foundIter == this->descendants.end())
         throw std::runtime_error("Internal DB error: couldn't find given ptr in parent!");
     auto keyIndex = foundIter - this->descendants.begin();
-    if (!this->keys[keyIndex])
-        throw std::runtime_error("Internal DB error: Searched key doesn't exist");
+    if (keyIndex >= this->keys.size())
+        return std::nullopt;
+//        throw std::runtime_error("Internal DB error: Searched key doesn't exist");
     return *this->keys[keyIndex];
 }
 
@@ -269,19 +271,21 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
     // add key from parent
     if (this->parent) {
         auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyAfterPointer(this->fileOffset);
-        allKeys.push_back(parentKey);
+        if(parentKey)
+        allKeys.push_back(*parentKey);
     }
     // add keys from second node
     allKeys.insert(allKeys.end(), otherKeys.begin(), otherKeys.end());
+    // add descendants from other node
+    allDescendants.insert(allDescendants.end(), otherDescendants.begin(), otherDescendants.end());
     // add new key
     auto insertIterator = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key); // don't touch this
     auto insertPosition = insertIterator - allKeys.begin();
-    // here error is
-    allDescendants.insert(allDescendants.begin() + insertPosition + 1, nodeOffset);
-    // add descendants from other node
-    allDescendants.insert(allDescendants.end(), otherDescendants.begin(), otherDescendants.end());
+    // here error is still
+    allDescendants.insert(allDescendants.begin() + insertPosition + 1, nodeOffset);// TODO: fix that hugging bug
 
-    auto mediumKeyIterator = allKeys.begin() + allKeys.size() / 2;
+
+    auto mediumKeyIterator = allKeys.begin() + (allKeys.size() - 1) / 2;
     auto mediumDescendantIterator = allDescendants.begin() + allDescendants.size() / 2;
     // split data among nodes
     this->setKeys(allKeys.begin(), mediumKeyIterator);

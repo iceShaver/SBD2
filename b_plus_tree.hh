@@ -229,8 +229,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const
                                                     if (!element) return false;
                                                     return *element < value;
                                                 });
-        if (foundLowerBound == innerNode->keys.end())
-            throw std::runtime_error("Internal db error: descendant node not found");
+
         auto ptrIndex = foundLowerBound - innerNode->keys.begin();
 
         auto descendantOffset = innerNode->descendants[ptrIndex];
