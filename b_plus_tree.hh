@@ -46,6 +46,7 @@ public:
 
     BPlusTree(fs::path filePath, OpenMode openMode = OpenMode::USE_EXISTING);
 
+    ~BPlusTree();
 
     static std::shared_ptr<ANode> ReadNode(std::fstream &fileHandle, size_t fileOffset);
     size_t AllocateDiskMemory(NodeType nodeType);
@@ -81,7 +82,7 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path filePath, OpenMode openMode)
         : filePath(std::move(filePath)) {
     debug([] { std::clog << "L: " << ALeafNode::BytesSize() << " I: " << AInnerNode::BytesSize() << '\n'; });
-
+    this->fileHandle.rdbuf()->pubsetbuf(0, 0);
     switch (openMode) {
         case OpenMode::USE_EXISTING:
             if (!fs::is_regular_file(this->filePath))
@@ -195,6 +196,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     // it is for extending the file to needed size, TODO: do something better
     if (nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).markChanged();
     else AInnerNode(offset, this->fileHandle).markChanged();
+    this->fileHandle.flush();
     this->allocationsCounter++;
     return offset;
 }
@@ -401,18 +403,19 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(st
                                                                               TValue const &value) {
     if (node == root) {
         std::shared_ptr<ANode> newNode;
-
-        auto newRoot = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
         if (node->nodeType() == NodeType::LEAF)
             newNode = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
         else
             newNode = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+        auto newRoot = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+
         auto oldRoot = std::dynamic_pointer_cast<ALeafNode>(this->root);
         auto midKey = oldRoot->compensateWithAndReturnMiddleKey(newNode, key, value, 0);
         newRoot->descendants[0] = oldRoot->fileOffset;
         newRoot->keys[0] = midKey;
         newRoot->descendants[1] = newNode->fileOffset;
         this->root = newRoot;
+        this->updateConfigHeader(); // TODO: check if this is necessary
         return *this;
     }
 //    if (node->parent == nullptr) throw std::runtime_error("Internal database error: nullptr node parent");
@@ -458,6 +461,10 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printNodeAndDes
         }
 
     }
+}
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::~BPlusTree() {
+    this->updateConfigHeader();
 }
 
 #endif //SBD2_B_PLUS_TREE_HH

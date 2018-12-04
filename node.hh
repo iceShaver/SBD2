@@ -125,7 +125,7 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
     this->fileHandle.seekp(this->fileOffset);
     auto bytes = this->serialize();
     fileHandle.clear();
-    this->fileHandle.write(reinterpret_cast<char *>(bytes.data()), this->bytesSize() + 1);
+    this->fileHandle.write(reinterpret_cast<char *>(bytes.data()), this->bytesSize());
     if (!this->fileHandle.good())debug([] { std::clog << "Error while writing node\n"; });
     this->changed = false;
     this->loaded = false;
