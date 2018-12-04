@@ -34,13 +34,14 @@ public:
 
     virtual NodeType nodeType() const = 0;
 
-    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value, size_t nodeOffset) = 0;
+    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value,
+                                                  size_t nodeOffset) = 0;
 
     virtual std::ostream &print(std::ostream &o) const = 0;
     Node &load();
     Node &unload();
     Node &markEmpty();
-    Node& markChanged();
+    Node &markChanged();
     virtual bool full() const = 0;
     //virtual void changeKey(size_t aPtr,size_t bPtr, TKey const & key) = 0;
     std::shared_ptr<Node> parent;
@@ -108,8 +109,9 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
         throw std::runtime_error("loading node error");
     this->fileHandle.read(&header, 1);
     this->fileHandle.read(reinterpret_cast<char *>(buffer.data()), this->bytesSize());
-    if (!this->fileHandle.good())
+    if (this->fileHandle.bad())
         throw std::runtime_error("loading node error");
+    if (this->fileHandle.eof())this->fileHandle.clear();
     this->deserialize(buffer);
     this->changed = false;
     this->loaded = true;

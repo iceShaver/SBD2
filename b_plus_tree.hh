@@ -401,12 +401,13 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(std::shared_ptr<ANode> node,
                                                                               TKey const &key,
                                                                               TValue const &value) {
+    std::shared_ptr<ANode> newNode = nullptr;
+    if (node->nodeType() == NodeType::LEAF)
+        newNode = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
+    else
+        newNode = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
     if (node == root) {
-        std::shared_ptr<ANode> newNode;
-        if (node->nodeType() == NodeType::LEAF)
-            newNode = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
-        else
-            newNode = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+
         auto newRoot = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
 
         auto oldRoot = std::dynamic_pointer_cast<ALeafNode>(this->root);
