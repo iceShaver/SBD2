@@ -15,6 +15,7 @@ template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
 
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
 
+
 using std::cout;
 enum class NodeType { INNER, LEAF };
 
@@ -32,11 +33,14 @@ public:
     friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
 
     virtual NodeType nodeType() const = 0;
-    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value) = 0;
+
+    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value, size_t nodeOffset) = 0;
+
     virtual std::ostream &print(std::ostream &o) const = 0;
     Node &load();
     Node &unload();
     Node &markEmpty();
+    Node& markChanged();
     virtual bool full() const = 0;
     //virtual void changeKey(size_t aPtr,size_t bPtr, TKey const & key) = 0;
     std::shared_ptr<Node> parent;
@@ -114,7 +118,7 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
 
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::unload() {
     if (!changed) {
-        debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 4);
+        debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 3);
         return *this;
     }
     debug([this] { std::clog << "Unloading node at: " << this->fileOffset << '\n'; }, 3);
@@ -141,6 +145,11 @@ Node<TKey, TValue> &Node<TKey, TValue>::markEmpty() {
 template<typename TKey, typename TValue>
 void Node<TKey, TValue>::printNodeAndDescendants() {
 
+}
+template<typename TKey, typename TValue>
+Node<TKey, TValue> &Node<TKey, TValue>::markChanged() {
+    this->changed = true;
+    return *this;
 }
 
 

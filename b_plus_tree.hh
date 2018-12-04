@@ -54,15 +54,17 @@ public:
 
 
     BPlusTree &addRecord(TKey const &key, TValue const &value, std::shared_ptr<ANode> node = nullptr);
-    bool tryCompensateAndAddRecord(std::shared_ptr<ANode> node, TKey const &key, TValue const &value);
+    bool
+    tryCompensateAndAddRecord(std::shared_ptr<ANode> node, TKey const &key, TValue const &value, size_t nodeOffset = 0);
     //bool tryCompensateAndAddRecord(std::shared_ptr<AInnerNode> node, TKey const &key);
+    BPlusTree &splitAndAddRecord(std::shared_ptr<ANode> node, TKey const &key, TValue const &value);
     BPlusTree &splitAndAddRecord(std::shared_ptr<ALeafNode> node, TKey const &key, TValue const &value);
     BPlusTree &splitAndAddRecord(std::shared_ptr<AInnerNode> node, TKey const &key, size_t descendantOffset);
     std::pair<std::shared_ptr<ANode>, std::shared_ptr<ANode>>
     getNodeNonFullNeighbours(std::shared_ptr<ANode> node);
     BPlusTree &printTree();
     void printNodeAndDescendants(std::shared_ptr<ANode> node);
-
+    auto getAllocationsCounter() const { return this->allocationsCounter; }
     friend std::ostream &operator<<<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>(
             std::ostream &os, BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> const &bPlusTree);
 
@@ -72,13 +74,15 @@ private:
     std::shared_ptr<ANode> root;
     ConfigHeader configHeader;
     BPlusTree &updateConfigHeader();
+    uint64_t allocationsCounter = 0;
 };
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path filePath, OpenMode openMode)
         : filePath(std::move(filePath)) {
-    switch (openMode) {
+    debug([] { std::clog << "L: " << ALeafNode::BytesSize() << " I: " << AInnerNode::BytesSize() << '\n'; });
 
+    switch (openMode) {
         case OpenMode::USE_EXISTING:
             if (!fs::is_regular_file(this->filePath))
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
@@ -153,18 +157,30 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     char header;
     while (true) {
         this->fileHandle.read(&header, 1);
-        if (this->fileHandle.eof()) {
-            this->fileHandle.clear();
-            result = this->fileHandle.tellg();
+
+        // if end of file
+        if (this->fileHandle.tellg() >= fs::file_size(this->filePath)) {
+            if (this->fileHandle.eof()) {
+                this->fileHandle.clear();
+                result = this->fileHandle.tellg();
+            } else {
+                result = this->fileHandle.tellg() - 1;
+            }
             break;
         }
+
+        // if found space is empty and big enough
         if (std::bitset<8>(header)[1] == static_cast<int>(nodeType) && std::bitset<8>(header)[0] == true) {
             result = this->fileHandle.tellg() - 1;
             break;
         }
-        this->fileHandle.seekg((size_t) this->fileHandle.tellg() +
-                               ((std::bitset<8>(header)[1] == static_cast<int>(NodeType::LEAF))
-                                ? ALeafNode::BytesSize() : AInnerNode::BytesSize()) - 1);
+
+        // not empty -> search next
+        auto stepSize = (std::bitset<8>(header)[1] == static_cast<int>(NodeType::LEAF))
+                        ? ALeafNode::BytesSize()
+                        : AInnerNode::BytesSize();
+        int64_t currentPosition = this->fileHandle.tellg() - 1;
+        this->fileHandle.seekg(currentPosition + stepSize);
     }
     if (result < 0) throw std::runtime_error("Unable to allocate disk memory");
     auto offset = static_cast<size_t>(result);
@@ -176,8 +192,10 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     newHeader[0] = false; // not empty;
     char headerByte = static_cast<char>(newHeader.to_ulong());
     this->fileHandle.write(&headerByte, 1);
-    if (nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).unload();
-    else AInnerNode(offset, this->fileHandle).unload();
+    // it is for extending the file to needed size, TODO: do something better
+    if (nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).markChanged();
+    else AInnerNode(offset, this->fileHandle).markChanged();
+    this->allocationsCounter++;
     return offset;
 }
 
@@ -186,21 +204,20 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const &key, TValue const &value,
                                                                       std::shared_ptr<ANode> node) {
     if (!node) node = this->root;
-    else node->load();
+    else node->load();// TODO: check if this is necessary
     debug([&] {
         std::clog << "Adding record to node at: " << node->fileOffset << '\n';
         std::clog << *node << '\n'; // Continue here
     }, 2);
+
     if (node->nodeType() == NodeType::LEAF) {
         auto leafNode = std::dynamic_pointer_cast<ALeafNode>(node);
-        if (leafNode->full()) {
-            if (!this->tryCompensateAndAddRecord(leafNode, key, value)) {  // if not -> split
-                this->splitAndAddRecord(leafNode, key, value);
-            }
-        } else {// leaf node is not full
+        if (leafNode->full())
+            tryCompensateAndAddRecord(node, key, value) || (splitAndAddRecord(node, key, value), 0);
+        else
             leafNode->insert(key, value);
-        }
-    } else if (node->nodeType() == NodeType::INNER) {
+
+    } else if (node->nodeType() == NodeType::INNER) { // if inner node -> go deeper
 
         // find proper descendant, load it, fill with parent pointer
         auto innerNode = std::dynamic_pointer_cast<AInnerNode>(node);
@@ -231,8 +248,9 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 bool
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::tryCompensateAndAddRecord(std::shared_ptr<ANode> node,
                                                                                       TKey const &key,
-                                                                                      TValue const &value) {
-    if (!node) throw std::runtime_error("Given node argument is nullptr");
+                                                                                      TValue const &value,
+                                                                                      size_t nodeOffset) {
+    if (!node) throw std::invalid_argument("Given node argument is nullptr");
 
     if (node->parent == nullptr) return false;
     auto[leftNeighbour, rightNeighbour] = this->getNodeNonFullNeighbours(node);
@@ -245,15 +263,16 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::tryCompensateAndAddR
 
     // compensate with left node
     if (leftNeighbour && !leftNeighbour->full()) {
-        auto midKey = leftNeighbour->compensateWithAndReturnMiddleKey(node, key, value);
+        auto midKey = leftNeighbour->compensateWithAndReturnMiddleKey(node, key, value, nodeOffset);
         parentNode->changeKey(leftNeighbour->fileOffset, midKey);
         // compensate with right node
     } else if (rightNeighbour && !rightNeighbour->full()) {
-        auto midKey = node->compensateWithAndReturnMiddleKey(rightNeighbour, key, value);
+        auto midKey = node->compensateWithAndReturnMiddleKey(rightNeighbour, key, value, nodeOffset);
         parentNode->changeKey(node->fileOffset, midKey);
     }
     return true;
 }
+
 
 /**
  * Returns the tuple of pointers to left and right neighbour if they exist (nullptrs respectively if don't)
@@ -296,6 +315,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getNodeNonFullNeighb
     return std::pair(std::move(leftNodePtr), std::move(rightNodePtr));
 }
 
+
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(std::shared_ptr<ALeafNode> node,
@@ -319,8 +339,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(st
         this->root = newRoot;
         return *this;
     }
+
     if (node->parent == nullptr) throw std::runtime_error("Internal database error: nullptr node parent");
-    // TODO: handle root
     auto newNode = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
     auto oldNode = std::dynamic_pointer_cast<ALeafNode>(node);
     std::vector<std::pair<TKey, TValue>> data = oldNode->getRecords();
@@ -364,12 +384,42 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(st
     newNode->setDescendants(data.second.begin() + descMidPos, data.second.end());
     auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
     if (parent->full()) {
-        if (!this->tryCompensateAndAddRecord(node->parent, midKey, Record::random())) { // TODO: change random to something more intelligent
+        if (!this->tryCompensateAndAddRecord(node->parent, midKey,
+                                             Record::random())) { // TODO: change random to something more intelligent
             this->splitAndAddRecord(parent, midKey, newNode->fileOffset);
         }
     } else {
         parent->add(midDesc, newNode->fileOffset);
     }
+    return *this;
+}
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(std::shared_ptr<ANode> node,
+                                                                              TKey const &key,
+                                                                              TValue const &value) {
+    if (node == root) {
+        std::shared_ptr<ANode> newNode;
+
+        auto newRoot = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+        if (node->nodeType() == NodeType::LEAF)
+            newNode = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
+        else
+            newNode = std::make_shared<AInnerNode>(AllocateDiskMemory(NodeType::INNER), this->fileHandle);
+        auto oldRoot = std::dynamic_pointer_cast<ALeafNode>(this->root);
+        auto midKey = oldRoot->compensateWithAndReturnMiddleKey(newNode, key, value, 0);
+        newRoot->descendants[0] = oldRoot->fileOffset;
+        newRoot->keys[0] = midKey;
+        newRoot->descendants[1] = newNode->fileOffset;
+        this->root = newRoot;
+        return *this;
+    }
+//    if (node->parent == nullptr) throw std::runtime_error("Internal database error: nullptr node parent");
+//    auto middleKey = node->compensateWithAndReturnMiddleKey(newNeighbour, key, value, 0);
+//    auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
+    //if(node->parent->full())
+    //    tryCompensateAndAddRecord(node->parent, middleKey, value, newNeighbour->fileOffset);
     return *this;
 }
 
@@ -398,21 +448,13 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printTree() {
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printNodeAndDescendants(std::shared_ptr<ANode> node) {
     std::cout << *node << ' ';
+    std::cout.flush();
     if (node->nodeType() == NodeType::INNER) {
         auto innerNode = std::dynamic_pointer_cast<AInnerNode>(node);
-        std::vector<size_t> nextDescendantsOffsets;
         for (auto &descOffset : innerNode->getEntries().second) {
-            auto descendant = BPlusTree::ReadNode(this->fileHandle, descOffset);
-            if (descendant->nodeType() == NodeType::INNER) {
-                auto descInnerNode = std::dynamic_pointer_cast<AInnerNode>(descendant);
-                auto descs = descInnerNode->getEntries().second;
-                std::copy(descs.begin(), descs.end(), std::back_inserter(nextDescendantsOffsets));
-            }
-            std::cout << *descendant << ' ';
-        }
-        std::cout << '\n';
-        for (auto &offset : nextDescendantsOffsets) {
-            this->printNodeAndDescendants(BPlusTree::ReadNode(this->fileHandle, offset));
+            printNodeAndDescendants(BPlusTree::ReadNode(this->fileHandle, descOffset));
+            std::cout << ' ';
+            std::cout.flush();
         }
 
     }

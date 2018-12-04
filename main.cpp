@@ -40,4 +40,5 @@ void test() {
       t.addRecord(4531, Record{21,58,69});
       t.addRecord(5431, Record{21,58,69});*/
     std::cout << "Printing tree:\n";
+    std::cout << t.getAllocationsCounter();
 }

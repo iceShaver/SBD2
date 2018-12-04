@@ -20,7 +20,9 @@ public:
     static size_t BytesSize();
     LeafNode &insert(TKey const &key, TValue const &value);
     bool full() const override;
-    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value) override;
+    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value, size_t nodeOffset) override;
+
+
     std::vector<std::pair<TKey, TValue>> getRecords() const;
     LeafNode &setRecords(std::vector<std::pair<TKey, TValue>> const &records);
     LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
@@ -136,7 +138,7 @@ template<typename TKey, typename TValue, size_t TDegree>
 std::vector<std::pair<TKey, TValue>>
 LeafNode<TKey, TValue, TDegree>::getRecords() const {
     auto result = std::vector<std::pair<TKey, TValue>>();
-    for (int i = 0; i < this->keys.size(); ++i) {
+    for (int i = 0; i < this->keys.size(); ++i){
         if (!this->keys[i]) return result;
         result.emplace_back(*this->keys[i], *this->values[i]);
     }
@@ -160,7 +162,7 @@ template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &
 LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
                                             typename std::vector<std::pair<TKey, TValue>>::iterator it2) {
-    if(it2 - it1 > this->keys.size())
+    if (it2 - it1 > this->keys.size())
         throw std::runtime_error("Internal DB error: too much records in node to set");
     this->changed = true;
     KeysCollection keys;
@@ -173,7 +175,7 @@ LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey,
 }
 template<typename TKey, typename TValue, size_t TDegree>
 TKey LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
-                                                                       TValue const &value) {
+                                                                       TValue const &value, size_t nodeOffset) {
 
     if (node->nodeType() != NodeType::LEAF)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
@@ -190,7 +192,8 @@ TKey LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shar
     // put two nodes data together
     allData.insert(allData.end(), otherNodeData.begin(), otherNodeData.end());
 
-    auto middleElementIterator = allData.begin() + (allData.size() - 1) / 2; // TODO: check correctness of odd and even numbers
+    auto middleElementIterator =
+            allData.begin() + (allData.size() - 1) / 2; // TODO: check correctness of odd and even numbers
     // put first part of data and middle element to the left node
     this->setRecords(allData.begin(), middleElementIterator + 1);
     // put rest in the right node

@@ -26,7 +26,8 @@ public:
     InnerNode &
     setDescendants(typename std::vector<size_t>::iterator begIt, typename std::vector<size_t>::iterator endIt);
     TKey getKeyAfterPointer(size_t aPtr);
-    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value) override;
+    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value, size_t nodeOffset) override;
+
     bool full() const override;
     InnerNode &add(TKey const &key, size_t descendantOffset);
 public:
@@ -219,7 +220,7 @@ InnerNode<TKey, TValue, TDegree> &InnerNode<TKey, TValue, TDegree>::add(TKey con
  */
 template<typename TKey, typename TValue, size_t TDegree>
 TKey InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
-                                                                        TValue const &value) {
+                                                                        TValue const &value, size_t nodeOffset) {
     if (node->nodeType() != NodeType::INNER)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
     auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
@@ -230,15 +231,16 @@ TKey InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::sha
     // add key from parent
     allKeys.push_back(parentKey);
     // add new key
-    allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key);
+    auto insertPosition = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key) - allKeys.begin();
     // add keys from second node
     allKeys.insert(allKeys.end(), otherKeys.begin(), otherKeys.end());
+
+    allDescendants.insert(allDescendants.begin()+insertPosition, nodeOffset);
     // add descendants from other node
     allDescendants.insert(allDescendants.end(), otherDescendants.begin(), otherDescendants.end());
 
     auto mediumKeyIterator = allKeys.begin() + allKeys.size() / 2;
     auto mediumDescendantIterator = allDescendants.begin() + allDescendants.size() / 2;
-
     // split data among nodes
     this->setKeys(allKeys.begin(), mediumKeyIterator);
     this->setDescendants(allDescendants.begin(), mediumDescendantIterator);
