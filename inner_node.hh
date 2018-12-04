@@ -223,6 +223,8 @@ TKey InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::sha
                                                                         TValue const &value, size_t nodeOffset) {
     if (node->nodeType() != NodeType::INNER)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
+    if(nodeOffset == 0)
+        throw std::invalid_argument("Internal DB error: InnerNode compensation failed: nodeOffset cannot be 0");
     auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
     auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyAfterPointer(this->fileOffset);
     // get first node data
