@@ -14,6 +14,10 @@ template<typename _F> constexpr inline void debug(_F f, size_t level = 1) {
     if (Config::debugLevel >= level)
         std::invoke(f);
 }
-template<typename _B, typename _T> constexpr inline bool instanceof() { return std::is_base_of<_B, _T>::value; }
+
+template<typename TBase, typename TDerived>
+constexpr inline bool instanceof([[maybe_unused]] TBase &b, [[maybe_unused]] TDerived &t) {
+    return std::is_base_of<TDerived, TBase>::value;
+}
 
 #endif //SBD2_TOOLS_HH

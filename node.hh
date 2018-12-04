@@ -32,7 +32,8 @@ public:
     friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
 
     virtual NodeType nodeType() const = 0;
-    virtual std::ostream &printData(std::ostream &o) const = 0;
+    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value) = 0;
+    virtual std::ostream &print(std::ostream &o) const = 0;
     Node &load();
     Node &unload();
     Node &markEmpty();
@@ -49,6 +50,7 @@ protected:
     virtual std::vector<uint8_t> getData() = 0;
     std::vector<uint8_t> serialize();
     virtual Node &deserialize(std::vector<uint8_t> const &bytes) = 0;
+    void printNodeAndDescendants();
     void remove();
     std::fstream &fileHandle;
     bool empty;
@@ -91,7 +93,7 @@ template<typename TKey, typename TValue> std::vector<uint8_t> Node<TKey, TValue>
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::load() {
     debug([this] { std::clog << "Loading node at: " << this->fileOffset << '\n'; }, 3);
     this->fileHandle.flush();
-    if(!this->fileHandle.good())
+    if (!this->fileHandle.good())
         throw std::runtime_error("loading node error");
     this->fileHandle.seekg(this->fileOffset);
     auto size = this->bytesSize();
@@ -127,9 +129,7 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
 }
 
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &os, Node<TKey, TValue> const &node) {
-    os << "Node: " << node.fileOffset << " { ";
-    node.printData(os) << "}";
-    return os;
+    return node.print(os);
 }
 
 template<typename TKey, typename TValue>
@@ -137,6 +137,10 @@ Node<TKey, TValue> &Node<TKey, TValue>::markEmpty() {
     this->changed = true;
     this->empty = true;
     return *this;
+}
+template<typename TKey, typename TValue>
+void Node<TKey, TValue>::printNodeAndDescendants() {
+
 }
 
 

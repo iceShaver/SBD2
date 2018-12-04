@@ -25,18 +25,19 @@ public:
     InnerNode &setKeys(typename std::vector<TKey>::iterator begIt, typename std::vector<TKey>::iterator endIt);
     InnerNode &
     setDescendants(typename std::vector<size_t>::iterator begIt, typename std::vector<size_t>::iterator endIt);
-    TKey getKeyBetweenPointers(size_t aPtr, size_t bPtr);
+    TKey getKeyAfterPointer(size_t aPtr);
+    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value) override;
     bool full() const override;
     InnerNode &add(TKey const &key, size_t descendantOffset);
 public:
-    InnerNode &changeKey(size_t aPtr, size_t bPtr, TKey const &key);
+    InnerNode &changeKey(size_t aPtr, TKey const &key);
 protected:
     size_t fillElementsSize() const override;
 public:
 
     ~InnerNode() override;
 private:
-    std::ostream &printData(std::ostream &o) const override;
+    std::ostream &print(std::ostream &o) const override;
 
     Node<TKey, TValue> &deserialize(std::vector<uint8_t> const &bytes) override;
     std::vector<uint8_t> getData() override;
@@ -83,16 +84,13 @@ Node<TKey, TValue> &InnerNode<TKey, TValue, TDegree>::deserialize(std::vector<ui
 }
 
 template<typename TKey, typename TValue, size_t TDegree>
-std::ostream &InnerNode<TKey, TValue, TDegree>::printData(std::ostream &o) const {
-    int i = 0;
-    std::optional<TKey> key;
-    std::optional<size_t> descendant;
-    while ((key = this->keys[i]) && (descendant = this->descendants[i])) {
-        o << "D:" << *descendant << ' ' << "K:" << *key << ' ';
-        ++i;
+std::ostream &InnerNode<TKey, TValue, TDegree>::print(std::ostream &o) const {
+    o << "INode: " << this->fileOffset << " { ";
+    auto[keys, descendants] = this->getEntries();
+    for (int i = 0; i < keys.size(); ++i) {
+        o << "D:" << descendants[i] << ' ' << "K:" << keys[i] << ' ';
     }
-    o << "D:" << *this->descendants[i + 1] << '\n';
-    return o.flush();
+    return o << "D:" << *descendants.rbegin() << '}';
 }
 
 template<typename TKey, typename TValue, size_t TDegree> size_t InnerNode<TKey, TValue, TDegree>::bytesSize() const {
@@ -150,25 +148,32 @@ InnerNode<TKey, TValue, TDegree>::setEntries(std::pair<std::vector<TKey>, std::v
     std::copy(entries.second.begin(), entries.second.end(), this->descendants.begin());
     return *this;
 }
+
+// TODO: this is nonsens
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree> &
-InnerNode<TKey, TValue, TDegree>::changeKey(size_t aPtr, size_t bPtr, TKey const &key) {
+InnerNode<TKey, TValue, TDegree>::changeKey(size_t aPtr, TKey const &key) {
     this->changed = true;
-    auto beginWith = std::min(aPtr, bPtr);
-    auto foundIter = std::find(this->descendants.begin(), this->descendants.end(), key);
-    if (foundIter == this->descendants.end()) throw std::runtime_error("Couldnt find given ptr in parent!");
-    this->keys[this->descendants.begin() - foundIter + 1] = key;
+    auto foundIter = std::find(this->descendants.begin(), this->descendants.end(), aPtr);
+    auto keyToChangeIndex = foundIter - this->descendants.begin();
+    if (foundIter == this->descendants.end())
+        throw std::runtime_error("Internal DB error: couldn't find given ptr in parent!");
+    this->keys[keyToChangeIndex] = key;
     return *this;
 }
+
+// TODO: this is nonsens
 template<typename TKey, typename TValue, size_t TDegree>
-TKey InnerNode<TKey, TValue, TDegree>::getKeyBetweenPointers(size_t aPtr, size_t bPtr) {
-    auto beginWith = std::min(aPtr, bPtr);
-    auto foundIter = std::find(this->descendants.begin(), this->descendants.end(), beginWith);
-    if (foundIter == this->descendants.end()) throw std::runtime_error("Couldn't find given ptr in parent!");
-    auto result = this->keys[this->descendants.begin() - foundIter + 1];
-    if (!result) throw std::runtime_error("Searched pointer does not exists");
-    return *result;
+TKey InnerNode<TKey, TValue, TDegree>::getKeyAfterPointer(size_t aPtr) {
+    auto foundIter = std::find(this->descendants.begin(), this->descendants.end(), aPtr);
+    if (foundIter == this->descendants.end())
+        throw std::runtime_error("Internal DB error: couldn't find given ptr in parent!");
+    auto keyIndex = foundIter - this->descendants.begin();
+    if (!this->keys[keyIndex])
+        throw std::runtime_error("Internal DB error: Searched key doesn't exist");
+    return *this->keys[keyIndex];
 }
+
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree> &
 InnerNode<TKey, TValue, TDegree>::setKeys(typename std::vector<TKey>::iterator begIt,
@@ -195,11 +200,52 @@ InnerNode<TKey, TValue, TDegree> &InnerNode<TKey, TValue, TDegree>::add(TKey con
     if (this->full()) throw std::runtime_error("Unable to add new key, desc to full node");
     this->changed = true;
     std::pair<std::vector<TKey>, std::vector<size_t>> data = this->getEntries();
-    auto insertPosition =  std::upper_bound(data.first.begin(), data.first.end(), key) - data.first.begin();
+    auto insertPosition = std::upper_bound(data.first.begin(), data.first.end(), key) - data.first.begin();
     data.first.insert(data.first.begin() + insertPosition, key);
     data.second.insert(data.second.begin() + insertPosition + 1, descendantOffset);
     this->setEntries(data);
     return *this;
+}
+
+/**
+ * Merges node with given node and given key and returns middle key, assumes, that this is left node, and right node is given in param and also that parent is present and loaded
+ * @tparam TKey
+ * @tparam TValue
+ * @tparam TDegree
+ * @param node
+ * @param key
+ * @param value
+ * @return middle key to put it in parent
+ */
+template<typename TKey, typename TValue, size_t TDegree>
+TKey InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
+                                                                        TValue const &value) {
+    if (node->nodeType() != NodeType::INNER)
+        throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
+    auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
+    auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyAfterPointer(this->fileOffset);
+    // get first node data
+    auto[allKeys, allDescendants] = this->getEntries();
+    auto[otherKeys, otherDescendants] = otherNode->getEntries();
+    // add key from parent
+    allKeys.push_back(parentKey);
+    // add new key
+    allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key);
+    // add keys from second node
+    allKeys.insert(allKeys.end(), otherKeys.begin(), otherKeys.end());
+    // add descendants from other node
+    allDescendants.insert(allDescendants.end(), otherDescendants.begin(), otherDescendants.end());
+
+    auto mediumKeyIterator = allKeys.begin() + allKeys.size() / 2;
+    auto mediumDescendantIterator = allDescendants.begin() + allDescendants.size() / 2;
+
+    // split data among nodes
+    this->setKeys(allKeys.begin(), mediumKeyIterator);
+    this->setDescendants(allDescendants.begin(), mediumDescendantIterator);
+    otherNode->setKeys(mediumKeyIterator + 1, allKeys.end());
+    otherNode->setDescendants(mediumDescendantIterator, allDescendants.end());
+
+    return *mediumKeyIterator;
 }
 
 
