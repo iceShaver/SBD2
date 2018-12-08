@@ -145,6 +145,8 @@ InnerNode<TKey, TValue, TDegree>::fillElementsSize() const {
 template<typename TKey, typename TValue, size_t TDegree>
 bool
 InnerNode<TKey, TValue, TDegree>::full() const {
+  /*  if(this->loaded == false)
+        throw std::runtime_error("Node not loaded: " + std::to_string(this->fileOffset));*/
     return std::find(this->descendants.begin(), this->descendants.end(), std::nullopt) == this->descendants.end();
 }
 
@@ -258,6 +260,7 @@ template<typename TKey, typename TValue, size_t TDegree>
 TKey
 InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
                                                                    TValue const &value, size_t nodeOffset) {
+//    this->load();
     if (node->nodeType() != NodeType::INNER)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
     if (nodeOffset == 0)
@@ -268,25 +271,30 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
     // get first node data
     auto[allKeys, allDescendants] = this->getEntries();
     auto[otherKeys, otherDescendants] = otherNode->getEntries();
-    // add key from parent
+    // add succeeding key from parent (if any)
     if (this->parent) {
+       // this->parent->load();
         auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyAfterPointer(this->fileOffset);
-        if(parentKey)
-        allKeys.push_back(*parentKey);
+        if (parentKey)
+            allKeys.push_back(*parentKey);
     }
     // add keys from second node
     allKeys.insert(allKeys.end(), otherKeys.begin(), otherKeys.end());
     // add descendants from other node
     allDescendants.insert(allDescendants.end(), otherDescendants.begin(), otherDescendants.end());
     // add new key
-    auto insertIterator = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key); // don't touch this
+    auto insertIterator = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key),
+                                         key); // don't touch this
     auto insertPosition = insertIterator - allKeys.begin();
     // here error is still
-    allDescendants.insert(allDescendants.begin() + insertPosition + 1, nodeOffset);// TODO: fix that hugging bug
+    auto beginPos = (insertPosition < allDescendants.size()) ? allDescendants.begin() + insertPosition + 1 :
+                    allDescendants.begin() + insertPosition;
+    allDescendants.insert(beginPos, nodeOffset);// TODO: fix that hugging bug
 
 
     auto mediumKeyIterator = allKeys.begin() + (allKeys.size() - 1) / 2;
     auto mediumDescendantIterator = allDescendants.begin() + allDescendants.size() / 2;
+    allKeys.resize(allDescendants.size() - 1); // remove surplus key, if no descendant after it
     // split data among nodes
     this->setKeys(allKeys.begin(), mediumKeyIterator);
     this->setDescendants(allDescendants.begin(), mediumDescendantIterator);

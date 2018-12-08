@@ -134,7 +134,7 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
     this->fileHandle.write(reinterpret_cast<char *>(bytes.data()), this->bytesSize());
     if (!this->fileHandle.good())debug([] { std::clog << "Error while writing node\n"; });
     this->changed = false;
-    this->loaded = false;
+    this->loaded = true;
     return *this;
 }
 
