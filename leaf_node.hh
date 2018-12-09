@@ -24,6 +24,7 @@ public:
     static size_t BytesSize();
     LeafNode &insert(TKey const &key, TValue const &value);
     bool full() const override;
+    bool keyExists(TKey key) const;
     TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value,
                                           size_t nodeOffset) override;
 
@@ -32,6 +33,7 @@ public:
     LeafNode &setRecords(std::vector<std::pair<TKey, TValue>> const &records);
     LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
                          typename std::vector<std::pair<TKey, TValue>>::iterator it2);
+    std::stringstream &print(std::stringstream &ss) const override;
 
 private:
     std::ostream &print(std::ostream &o) const override;
@@ -40,7 +42,7 @@ private:
     size_t elementsSize() const override;
     size_t fillElementsSize() const override;
     size_t bytesSize() const override;
-    NodeType nodeType() const override;;
+    NodeType nodeType() const override;
     constexpr auto ElementsSize() const noexcept;
 };
 
@@ -142,8 +144,7 @@ LeafNode<TKey, TValue, TDegree>::full() const {
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &
 LeafNode<TKey, TValue, TDegree>::insert(TKey const &key, TValue const &value) {
-    if (std::find(this->keys.begin(), this->keys.end(), key) != this->keys.end())
-        throw std::runtime_error("Record with given key already exists");
+
     if (this->full()) throw std::runtime_error("Tried to add element to full node");
     this->changed = true;
     auto records = this->getRecords();
@@ -164,7 +165,15 @@ LeafNode<TKey, TValue, TDegree>::getRecords() const {
     }
     return std::move(result);
 }
-
+template<typename TKey, typename TValue, size_t TDegree>
+std::stringstream &LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
+    ss << "node" << this->fileOffset << "[label=<";
+    auto records = this->getRecords();
+    for (auto it = records.begin(); it != records.end(); it++)
+        ss  <<  it->first  << '|' <<"<font color='blue'>" << /*it->second*/"R"<< "</font>" << ((it == records.end()-1)?"":"|");
+    ss << " >];\n";
+    return ss;
+}
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &
@@ -184,7 +193,8 @@ template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &
 LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
                                             typename std::vector<std::pair<TKey, TValue>>::iterator it2) {
-    if (it2 - it1 > this->keys.size())
+    auto distance = std::distance(it1, it2);
+    if (distance > this->keys.size())
         throw std::runtime_error("Internal DB error: too much records in node to set");
     this->changed = true;
     KeysCollection keys;
@@ -199,31 +209,46 @@ LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey,
 template<typename TKey, typename TValue, size_t TDegree>
 TKey
 LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
-                                                                       TValue const &value, size_t nodeOffset) {
+                                                                  TValue const &value, size_t nodeOffset) {
 
     if (node->nodeType() != NodeType::LEAF)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
     if (std::find(this->keys.begin(), this->keys.end(), key) != this->keys.end())
         throw std::runtime_error("Record with given key already exists");
-    // TODO: do i have to check fullness of node?
+
+
     auto otherNode = std::dynamic_pointer_cast<LeafNode>(node);
+    std::vector<std::pair<TKey, TValue>> data;
 
-    std::vector<std::pair<TKey, TValue>> allData = this->getRecords();
-    std::vector<std::pair<TKey, TValue>> otherNodeData = otherNode->getRecords();
+    std::vector<std::pair<TKey, TValue>> aData = this->getRecords();
+    std::vector<std::pair<TKey, TValue>> bData = otherNode->getRecords();
+    // keys are sorted, hence we can merge
+    std::merge(aData.begin(), aData.end(), bData.begin(), bData.end(), std::back_inserter(data),
+               [](auto x, auto y) { return x.first < y.first; });
 
-    // put two nodes data together
-    allData.insert(allData.end(), otherNodeData.begin(), otherNodeData.end());
-    // add new key
-    allData.insert(std::upper_bound(allData.begin(), allData.end(), std::pair(key, value),
-                                    [](auto x, auto y) { return x.first < y.first; }), std::pair(key, value));
-    auto middleElementIterator =
-            allData.begin() + (allData.size() - 1) / 2; // TODO: check correctness of odd and even numbers
+    // insert new key
+    data.insert(std::upper_bound(data.begin(), data.end(), std::pair(key, value),
+                                 [](auto x, auto y) { return x.first < y.first; }), std::pair(key, value));
+    auto middleElementIterator = data.begin() + (data.size() - 1) / 2;
+
     // put first part of data and middle element to the left node
-    this->setRecords(allData.begin(), middleElementIterator + 1);
+    this->setRecords(data.begin(), middleElementIterator + 1);
+
     // put rest in the right node
-    otherNode->setRecords(middleElementIterator + 1, allData.end());
+    otherNode->setRecords(middleElementIterator + 1, data.end());
+
     // return middle key
     return middleElementIterator->first;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+bool LeafNode<TKey, TValue, TDegree>::keyExists(TKey key) const {
+    for (auto &element : keys) {
+        if (!element) return false;
+        if (*element == key) return true;
+    }
+    return false;
 }
 
 

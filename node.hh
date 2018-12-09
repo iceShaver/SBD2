@@ -24,6 +24,8 @@ class LeafNode;
 
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &, Node<TKey, TValue> const &);
 
+template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &, Node<TKey, TValue> const &);
+
 
 enum class NodeType { INNER, LEAF };
 
@@ -36,11 +38,13 @@ public:
     virtual ~Node();
 
     friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
+    friend std::ostream &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> const &node);
     virtual NodeType nodeType() const = 0;
     virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value,
                                                   size_t nodeOffset) = 0;
 
     virtual std::ostream &print(std::ostream &o) const = 0;
+    virtual std::stringstream& print(std::stringstream &ss) const = 0;
     Node &load();
     Node &unload();
     Node &markEmpty();
@@ -141,6 +145,11 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
 
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &os, Node<TKey, TValue> const &node) {
     return node.print(os);
+}
+
+
+template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &ss, Node<TKey, TValue> const &node) {
+    return node.print(ss);
 }
 
 

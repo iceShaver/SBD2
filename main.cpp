@@ -2,11 +2,17 @@
 #include "b_plus_tree.hh"
 #include "record.hh"
 #include <memory>
+#include <filesystem>
+
+#include <graphviz/gvc.h>
+namespace fs = std::filesystem;
+
 //TODO: remove all flushes
 void test();
 
 int main() {
     test();
+
     return 0;
 }
 
@@ -19,6 +25,7 @@ void test() {
     std::cout << "Add: " << 70<<'\n';t.addRecord(70, Record{32,58,69});t.printTree();std::cout << '\n';
     std::cout << "Add: " << 30<<'\n';t.addRecord(30, Record{25,65,98});t.printTree();std::cout << '\n';
     std::cout << "Add: " << 10<<'\n';t.addRecord(10, Record{21,58,69});t.printTree();std::cout << '\n';
+    t.printTree();
     std::cout << "Add: " << 0<<'\n';t.addRecord(0, Record::random());t.printTree();std::cout << '\n';
     std::cout << "Add: " << 15<<'\n';t.addRecord(15, Record::random());t.printTree();std::cout << '\n';
     std::cout << "Add: " << 39<<'\n';t.addRecord(39, Record::random());t.printTree();std::cout << '\n';
@@ -41,4 +48,5 @@ void test() {
     std::cout << "Add: " << 5431<<'\n';t.addRecord(5431, Record{21,58,69});t.printTree();std::cout << '\n';
     std::cout << "Printing tree:\n";
     std::cout << t.getAllocationsCounter();
+    t.display();
 }
