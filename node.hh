@@ -11,21 +11,11 @@
 #include <bitset>
 #include "tools.hh"
 
-template<typename TKey, typename TValue>
-class Node;
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-class InnerNode;
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-class LeafNode;
-
+template<typename TKey, typename TValue> class Node;
+template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
+template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &, Node<TKey, TValue> const &);
-
 template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &, Node<TKey, TValue> const &);
-
 
 enum class NodeType { INNER, LEAF };
 
@@ -44,7 +34,7 @@ public:
                                                   size_t nodeOffset) = 0;
 
     virtual std::ostream &print(std::ostream &o) const = 0;
-    virtual std::stringstream& print(std::stringstream &ss) const = 0;
+    virtual std::stringstream &print(std::stringstream &ss) const = 0;
     Node &load();
     Node &unload();
     Node &markEmpty();
@@ -148,7 +138,8 @@ template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &
 }
 
 
-template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &ss, Node<TKey, TValue> const &node) {
+template<typename TKey, typename TValue>
+std::ostream &operator<<(std::stringstream &ss, Node<TKey, TValue> const &node) {
     return node.print(ss);
 }
 

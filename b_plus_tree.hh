@@ -66,7 +66,7 @@ public:
     BPlusTree &printTree();
     std::stringstream gvcPrintTree();
     void printNodeAndDescendants(std::shared_ptr<ANode> node);
-    std::stringstream& gvcPrintNodeAndDescendants(std::shared_ptr<ANode> node, std::stringstream &ss);
+    std::stringstream &gvcPrintNodeAndDescendants(std::shared_ptr<ANode> node, std::stringstream &ss);
     auto getAllocationsCounter() const { return this->allocationsCounter; }
     friend std::ostream &operator<<<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>(
             std::ostream &os, BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> const &bPlusTree);
@@ -200,7 +200,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     this->allocationsCounter++;
     return offset;
 }
-
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
@@ -450,13 +449,13 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintTree() {
     ss << "digraph g{node [shape = record,height=.1];";
     gvcPrintNodeAndDescendants(this->root, ss);
     ss << "}";
-    debug([&]{std::clog << ss.str() << '\n';}, 2);
+    debug([&] { std::clog << ss.str() << '\n'; }, 2);
     return ss;
 }
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::stringstream&
+std::stringstream &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintNodeAndDescendants(
         std::shared_ptr<BPlusTree::ANode> node, std::stringstream &ss) {
     ss << *node;
