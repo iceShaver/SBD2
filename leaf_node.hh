@@ -165,15 +165,19 @@ LeafNode<TKey, TValue, TDegree>::getRecords() const {
     }
     return std::move(result);
 }
+
+
 template<typename TKey, typename TValue, size_t TDegree>
-std::stringstream &LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
+std::stringstream &
+LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
     ss << "node" << this->fileOffset << "[label=<";
     auto records = this->getRecords();
     for (auto it = records.begin(); it != records.end(); it++)
         ss  <<  it->first  << '|' <<"<font color='blue'>" << /*it->second*/"R"<< "</font>" << ((it == records.end()-1)?"":"|");
-    ss << " >];\n";
+    ss << ">];\n";
     return ss;
 }
+
 
 template<typename TKey, typename TValue, size_t TDegree>
 LeafNode<TKey, TValue, TDegree> &
@@ -205,6 +209,7 @@ LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey,
     this->values = std::move(values);
     return *this;
 }
+
 
 template<typename TKey, typename TValue, size_t TDegree>
 TKey

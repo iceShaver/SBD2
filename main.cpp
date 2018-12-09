@@ -46,7 +46,6 @@ void test() {
     std::cout << "Add: " << -100045<<'\n';t.addRecord(-100045, Record{21,58,69});t.printTree();std::cout << '\n';
     std::cout << "Add: " << 4531<<'\n';t.addRecord(4531, Record{21,58,69});t.printTree();std::cout << '\n';
     std::cout << "Add: " << 5431<<'\n';t.addRecord(5431, Record{21,58,69});t.printTree();std::cout << '\n';
-    std::cout << "Printing tree:\n";
-    std::cout << t.getAllocationsCounter();
+    std::cout << t.getAllocationsCounter() << '\n';
     t.display();
 }

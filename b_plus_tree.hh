@@ -56,8 +56,7 @@ public:
 
     static std::shared_ptr<ANode> ReadNode(std::fstream &fileHandle, size_t fileOffset);
     size_t AllocateDiskMemory(NodeType nodeType);
-    BPlusTree &addRecord(TKey const &key, TValue const &value, std::shared_ptr<ANode> node = nullptr);
-    void addRecordV2(TKey const &key, TValue const &value);
+    void addRecord(TKey const &key, TValue const &value);
     size_t findProperDescendantOffset(std::shared_ptr<ANode> node, TKey const &key);
     bool tryCompensateAndAdd(std::shared_ptr<ANode> node,
                              TKey const &key, TValue const &value, size_t nodeOffset = 0);
@@ -202,52 +201,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     return offset;
 }
 
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const &key, TValue const &value,
-                                                                      std::shared_ptr<ANode> node) {
-    this->addRecordV2(key, value);
-    /*if (!node) node = this->root;
-    //else node->load();// TODO: check if this is necessary
-
-    debug([&] {
-        std::clog << "Adding record to node at: " << node->fileOffset << '\n';
-        std::clog << *node << '\n'; // Continue here
-    }, 2);
-
-    if (node->nodeType() == NodeType::LEAF) {
-        auto leafNode = std::dynamic_pointer_cast<ALeafNode>(node);
-        if (leafNode->full()) {
-            if (!tryCompensateAndAdd(node, key, value)) {
-                splitAndAddRecord(node, key, value);
-            }
-        } else
-            leafNode->insert(key, value);
-
-    } else if (node->nodeType() == NodeType::INNER) { // if inner node -> go deeper
-        // find proper descendant, load it, fill with parent pointer
-        auto innerNode = std::dynamic_pointer_cast<AInnerNode>(node);
-        // find key >= inserted key
-        auto foundLowerBound = std::lower_bound(innerNode->keys.begin(), innerNode->keys.end(), key,
-                                                [](auto element, auto value) {
-                                                    if (!element) return false;
-                                                    return *element < value;
-                                                });
-
-        auto ptrIndex = foundLowerBound - innerNode->keys.begin();
-
-        auto descendantOffset = innerNode->descendants[ptrIndex];
-        std::shared_ptr<ANode> descendant = nullptr;
-        if (descendantOffset == std::nullopt) // TODO: think of it
-            throw std::runtime_error("Internal db error: descendant node not found");
-
-        descendant = BPlusTree::ReadNode(this->fileHandle, *descendantOffset);
-        descendant->parent = node;
-        this->addRecord(key, value, descendant);
-    }*/
-    return *this;
-}
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
@@ -418,7 +371,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printNodeAndDescenda
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecordV2(TKey const &key, TValue const &value) {
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const &key, TValue const &value) {
 
     // find leaf to insert record into
     std::shared_ptr<ANode> node = root;
@@ -472,31 +425,15 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperDescendant
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::display() {
+void
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::display() {
     GVC_t *gvc;
     Agraph_t *g;
     gvc = gvContext();
-
-    auto str = R"**(
-digraph g {
-node [shape = record,height=.1];
-node0[label = "<f0> |10|<f1> |20|<f2> |30|<f3>"];
-node1[label = "<f0> |1|<f1> |2|<f2>"];
-"node0":f0 -> "node1"
-node2[label = "<f0> |11|<f1> |12|<f2>"];
-"node0":f1 -> "node2"
-node3[label = "<f0> |21|<f1> |22|<f2>"];
-"node0":f2 -> "node3"
-node4[label = "<f0> |31|<f1> |32|<f2>"];
-"node0":f3 -> "node4"
-
-}
-    )**";
     g = agmemread(this->gvcPrintTree().str().c_str());
     std::string filePath = tmpnam(nullptr);
     auto file = fopen(filePath.c_str(), "w");
     gvLayout(gvc, g, "dot");
-
     gvRender(gvc, g, "png", file);
     gvFreeLayout(gvc, g);
     agclose(g);
@@ -510,14 +447,10 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 std::stringstream
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintTree() {
     std::stringstream ss;
-    ss << R"**(
-digraph g{
-node [shape = record,height=.1];
-)**";
-
+    ss << "digraph g{node [shape = record,height=.1];";
     gvcPrintNodeAndDescendants(this->root, ss);
     ss << "}";
-    std::cout << ss.str() << std::endl;
+    debug([&]{std::clog << ss.str() << '\n';}, 2);
     return ss;
 }
 
