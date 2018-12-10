@@ -62,23 +62,23 @@ void Dbms::initCommands() {
     // @formatter:off
     commands = {
             // dbms operations
-            {"help",           {[&](auto params) { this->printHelp(); },            "Prints this help"}},
-            {"exit",           {[&](auto params) { this->exit(); },                 "Close DB file and exit program"}},
-            {"open_db_file",   {[&](auto params) { this->loadDbFile(params); },     "Open specified db file"}},
-            {"create_db_file", {[&](auto params) { this->createDbFile(params); },   "Create new db file at specified location"}},
-            {"close_db_file",  {[&](auto params) { this->closeDbFile(); },          "Save and close db file"}},
-            {"print_db_file",  {[&](auto params) { this->printDbFile(); },          "Print content of db file in human readable form to stdout"}},
-            {"test",           {[&](auto params) { this->test(); },                 "Test program"}},
+            {"help",           {[&](auto &params) { this->printHelp(); },            "Prints this help"}},
+            {"exit",           {[&](auto &params) { this->exit(); },                 "Close DB file and exit program"}},
+            {"open_db_file",   {[&](auto &params) { this->loadDbFile(params); },     "Open specified db file"}},
+            {"create_db_file", {[&](auto &params) { this->createDbFile(params); },   "Create new db file at specified location"}},
+            {"close_db_file",  {[&](auto &params) { this->closeDbFile(); },          "Save and close db file"}},
+            {"print_db_file",  {[&](auto &params) { this->printDbFile(); },          "Print content of db file in human readable form to stdout"}},
+            {"test",           {[&](auto &params) { this->test(); },                 "Test program"}},
             // tree operations
-            {"print_tree",     {[&](auto params) { this->tree->print(); },          "Print all nodes of tree to stdout"}},
-            {"draw_tree",      {[&](auto params) { this->tree->draw(); },           "Draw and display tree as svg picture"}},
-            {"truncate_tree",  {[&](auto params) { this->tree->truncate(); },       "Remove all records, clean db file"}},
+            {"print_tree",     {[&](auto &params) { this->tree->print(); },          "Print all nodes of tree to stdout"}},
+            {"draw_tree",      {[&](auto &params) { this->tree->draw(); },           "Draw and display tree as svg picture"}},
+            {"truncate_tree",  {[&](auto &params) { this->tree->truncate(); },       "Remove all records, clean db file"}},
             // records operations
-            {"create",         {[&](auto params) { this->create_record(params); },  "Create new record"}},
-            {"remove",         {[&](auto params) { this->remove_record(params); },  "Remove record"}},
-            {"update",         {[&](auto params) { this->update_record(params); },  "Update record"}},
-            {"delete",         {[&](auto params) { this->delete_record(params); },  "Delete record"}},
-            {"print_records",  {[&](auto params) { this->print_records(params); },  "Print all records in order by key value"}}
+            {"create",         {[&](auto &params) { this->create_record(params); },  "Create new record"}},
+            {"remove",         {[&](auto &params) { this->remove_record(params); },  "Remove record"}},
+            {"update",         {[&](auto &params) { this->update_record(params); },  "Update record"}},
+            {"delete",         {[&](auto &params) { this->delete_record(params); },  "Delete record"}},
+            {"print_records",  {[&](auto &params) { this->print_records(params); },  "Print all records in order by key value"}}
     };
     // @formatter:on
 }
