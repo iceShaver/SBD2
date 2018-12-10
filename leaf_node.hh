@@ -173,7 +173,8 @@ LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
     ss << "node" << this->fileOffset << "[label=<";
     auto records = this->getRecords();
     for (auto it = records.begin(); it != records.end(); it++)
-        ss  <<  it->first  << '|' <<"<font color='blue'>" << /*it->second*/"R"<< "</font>" << ((it == records.end()-1)?"":"|");
+        ss << it->first << '|' << "<font color='blue'>" << /*it->second*/"R" << "</font>"
+           << ((it == records.end() - 1) ? "" : "|");
     ss << ">];\n";
     return ss;
 }
@@ -227,6 +228,11 @@ LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_pt
 
     std::vector<std::pair<TKey, TValue>> aData = this->getRecords();
     std::vector<std::pair<TKey, TValue>> bData = otherNode->getRecords();
+
+    // determine order (which node is left, right) (contains smaller keys), if otherNode is newly created, then it is right
+    bool order = bData.size() != 0 ? aData[0].first < bData[0].first : true;
+    auto nodes = order ? std::pair(this, otherNode.get())
+                       : std::pair(otherNode.get(), this);
     // keys are sorted, hence we can merge
     std::merge(aData.begin(), aData.end(), bData.begin(), bData.end(), std::back_inserter(data),
                [](auto x, auto y) { return x.first < y.first; });
@@ -237,10 +243,10 @@ LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_pt
     auto middleElementIterator = data.begin() + (data.size() - 1) / 2;
 
     // put first part of data and middle element to the left node
-    this->setRecords(data.begin(), middleElementIterator + 1);
+    nodes.first->setRecords(data.begin(), middleElementIterator + 1);
 
     // put rest in the right node
-    otherNode->setRecords(middleElementIterator + 1, data.end());
+    nodes.second->setRecords(middleElementIterator + 1, data.end());
 
     // return middle key
     return middleElementIterator->first;
@@ -249,7 +255,7 @@ LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_pt
 
 template<typename TKey, typename TValue, size_t TDegree>
 bool
-LeafNode<TKey, TValue, TDegree>::contains(TKey const & key) const {
+LeafNode<TKey, TValue, TDegree>::contains(TKey const &key) const {
     for (auto &element : keys) {
         if (!element) return false;
         if (*element == key) return true;
