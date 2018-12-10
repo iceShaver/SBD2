@@ -10,15 +10,16 @@
 #include <unordered_map>
 #include <memory>
 #include <any>
+#include <filesystem>
 #include "b_plus_tree.hh"
+namespace fs = std::filesystem;
 
 class Record;
 //template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree> class BPlusTree;
 
 
-
 class Dbms final {
-
+    using BTreeType = BPlusTree<int64_t, Record, 3, 2>;
 public:
     int main(int argc, char **argv);
 
@@ -30,19 +31,20 @@ private:
     void printHelp();
     void exit();
 
-    void loadDbFile(std::string params);
-    void createDbFile(std::string params);
+    void loadDbFile(std::string const&params);
+    void createDbFile(std::string const&params);
     void closeDbFile();
     void printDbFile();
-    void create_record(std::string params);
-    void remove_record(std::string params);
-    void update_record(std::string params);
-    void delete_record(std::string params);
-    void print_records(std::string params);
+    void create_record(std::string const&params);
+    void remove_record(std::string const&params);
+    void update_record(std::string const&params);
+    void delete_record(std::string const&params);
+    void print_records(std::string const&params);
 
 
     std::unordered_map<std::string, std::pair<std::function<void(std::string)>, std::string>> commands;
-    std::unique_ptr<BPlusTree<int64_t, Record, 3, 2>> tree;
+    std::unique_ptr<BTreeType> tree;
+
 
 
 };

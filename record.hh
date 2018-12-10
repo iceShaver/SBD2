@@ -32,6 +32,7 @@ public:
     Record &operator=(Record &&) = default;
 
     explicit Record(data_t data);
+    explicit Record(std::string const&string);
     Record(uint8_t grade1, uint8_t grade2, uint8_t grade3);
     ~Record() = default;
 
@@ -41,7 +42,9 @@ public:
     std::array<uint8_t, sizeof(data_t)> to_bytes() const;
     friend std::ostream &operator<<(std::ostream &os, const Record &record);
 
-    static Record random();
+    static Record Random();
+
+
 private:
     Record(uint64_t student_id, uint8_t grade1, uint8_t grade2, uint8_t grade3);
 

@@ -23,7 +23,7 @@ private:
 template<int64_t TMin, int64_t TMax>
 typename UniqueGenerator<TMin, TMax>::NumberType UniqueGenerator<TMin, TMax>::GetRandom() {
     if(TMax - TMin == drawedNumbers.size() - 1)
-        throw std::runtime_error("Generator is out of unique random numbers");
+        throw std::runtime_error("Generator is out of unique Random numbers");
     while(true) {
         auto drawedNumber = uid(gen);
         if(drawedNumbers.find(drawedNumber) == drawedNumbers.end()){

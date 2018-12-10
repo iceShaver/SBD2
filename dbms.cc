@@ -36,7 +36,7 @@ void Dbms::test() const {
     t.printTree();
     std::cout << "Add: " << 0<<'\n';t.addRecord(0, Record::random());t.printTree();std::cout << '\n';
     std::cout << "Add: " << 15<<'\n';t.addRecord(15, Record::random());t.printTree();std::cout << '\n';
-    std::cout << "Add: " << 39<<'\n';t.addRecord(39, Record::random());t.printTree();std::cout << '\n';
+    std::cout << "Add: " << 39<<'\n';t.addRecord(39, Record::Random());t.printTree();std::cout << '\n';
     std::cout << "Add: " << 1000<<'\n';t.addRecord(1000, Record{21,58,69});t.printTree();std::cout << '\n';
     std::cout << "Add: " << -1000<<'\n';t.addRecord(-1000, Record{21,58,69});t.printTree();std::cout << '\n';
     std::cout << "Add: " << -555<<'\n';t.addRecord(-555, Record{21,58,69});t.print();std::cout << '\n';
@@ -116,7 +116,7 @@ void Dbms::printHelp() {
     std::cout << "Available commands:\n";
     for (auto&[cmd, info] : this->commands) {
         auto&[func, desc] = info;
-        std::cout << std::setw(20) <<std::left << cmd << std::setw(20) << std::left <<  desc << '\n';
+        std::cout << std::setw(20) << std::left << cmd << std::setw(20) << std::left << desc << '\n';
     }
 }
 
@@ -126,47 +126,97 @@ void Dbms::exit() {
     ::exit(0);
 }
 
-void Dbms::loadDbFile(std::string params) {
+void Dbms::loadDbFile(std::string const &params) {
+    if (tree) {
+        std::cout << "You have to close current db before opening next\n";
+        return;
+    }
+    if (!fs::is_regular_file(params)) {
+        std::cout << "Couldn't open file: " << params << '\n';
+        return;
+    }
+    tree = std::make_unique<BTreeType>(params, OpenMode::USE_EXISTING);
 
 }
 
 
-void Dbms::createDbFile(std::string params) {
+void Dbms::createDbFile(std::string const &params) {
+    if (tree) {
+        std::cout << "You have to close current db before creating new\n";
+        return;
+    }
+    if (fs::exists(params)) {
+        std::cout << "Given file exists: " << params << "\nOverwrite? [Y/N]\n";
+        std::string result;
+        while (true) {
+            std::getline(std::cin, result);
+            if (result == "Y") break;
+            if (result == "N") return;
+        }
+        fs::remove(params);
+    }
+    tree = std::make_unique<BTreeType>(params, OpenMode::CREATE_NEW);
 
 }
 
 
 void Dbms::closeDbFile() {
-
+    if (!tree) {
+        std::cout << "No loaded database\n";
+        return;
+    }
+    tree = nullptr;
 }
 
 
 void Dbms::printDbFile() {
+    if (!tree) {
+        std::cout << "No loaded database\n";
+        return;
+    }
+    std::cout << "Printing db file here!\n";
+}
+
+
+void Dbms::create_record(std::string const &params) {
+    try {
+        auto keyToken = params.substr(0, params.find(' '));
+        auto recordToken = params.substr(params.find(' ') + 1);
+        auto value = Record(recordToken);
+        auto key = std::stoll(keyToken);
+        this->tree->addRecord(key, value);
+    } catch (std::out_of_range const &e) {
+        std::cout << "Invalid arguments: " << params << '\n';
+        std::cout << e.what() << '\n';
+        return;
+    } catch (std::invalid_argument const &e) {
+        std::cout << "Invalid arguments: " << params << '\n';
+        std::cout << e.what() << '\n';
+        return;
+    } catch (std::runtime_error const &e) {
+        std::cout << "Error while adding record:\n";
+        std::cout << e.what() << '\n';
+        return;
+    }
+}
+
+
+void Dbms::remove_record(std::string const &params) {
 
 }
 
 
-void Dbms::create_record(std::string params) {
+void Dbms::update_record(std::string const &params) {
 
 }
 
 
-void Dbms::remove_record(std::string params) {
+void Dbms::delete_record(std::string const &params) {
 
 }
 
 
-void Dbms::update_record(std::string params) {
-
-}
-
-
-void Dbms::delete_record(std::string params) {
-
-}
-
-
-void Dbms::print_records(std::string params) {
+void Dbms::print_records(std::string const &params) {
 
 }
 

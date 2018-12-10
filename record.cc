@@ -8,6 +8,7 @@
 #include <string>
 #include <cmath>
 #include <iomanip>
+#include <boost/algorithm/string.hpp>
 
 uint8_t Record::get_grade(int gradeNumber) const {
     if (gradeNumber <= GRADES_NUMBER && gradeNumber > 0)
@@ -16,6 +17,19 @@ uint8_t Record::get_grade(int gradeNumber) const {
 }
 
 Record::Record(data_t data) : data(data) { }
+
+Record::Record(std::string const&string) {
+    std::vector<std::string> tokens;
+    boost::split(tokens, string, boost::is_any_of(" "));
+    if(tokens.size() != 3)
+        throw std::invalid_argument("Invalid data for creating Record");
+    auto grade1 = std::stoul(tokens[0]);
+    auto grade2 = std::stoul(tokens[1]);
+    auto grade3 = std::stoul(tokens[2]);
+    *this = Record(grade1, grade2, grade3);
+}
+
+
 
 std::array<uint8_t, sizeof(Record::data_t)> Record::to_bytes() const {
     auto result = std::array<uint8_t, sizeof(data_t)>();
@@ -44,6 +58,9 @@ std::ostream &operator<<(std::ostream &os, const Record &record) {
 
 uint64_t Record::get_student_id() const { return data >> 24; }
 
-Record Record::random() {
+Record Record::Random() {
     return Record{static_cast<uint8_t>(uid(gen)), static_cast<uint8_t>(uid(gen)), static_cast<uint8_t>(uid(gen))};
 }
+
+
+
