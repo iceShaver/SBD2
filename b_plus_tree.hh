@@ -12,11 +12,12 @@
 #include <algorithm>
 #include <memory>
 #include <utility>
+#include <graphviz/gvc.h>
 #include "node.hh"
 #include "inner_node.hh"
 #include "leaf_node.hh"
 #include "record.hh"
-#include <graphviz/gvc.h>
+#include "tools.hh"
 
 namespace fs = std::filesystem;
 
@@ -66,14 +67,15 @@ public:
                            TKey const &key, TValue const &value, size_t addedNodeOffset = 0);
     void mergeAndRemove(std::shared_ptr<ANode> node, TKey const &key); // TODO: check if nodeOffset is necessary
     std::shared_ptr<ANode> getNodeUnfilledNeighbour(std::shared_ptr<ANode> node);
-    BPlusTree &printTree();
+    BPlusTree &print();
     std::stringstream gvcPrintTree();
     void printNodeAndDescendants(std::shared_ptr<ANode> node);
     std::stringstream &gvcPrintNodeAndDescendants(std::shared_ptr<ANode> node, std::stringstream &ss);
     auto getAllocationsCounter() const { return this->allocationsCounter; }
     friend std::ostream &operator<<<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>(
             std::ostream &os, BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> const &bPlusTree);
-    void display();
+    void draw();
+    void truncate();
 private:
     fs::path filePath;
     std::fstream fileHandle;
@@ -87,13 +89,13 @@ private:
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path filePath, OpenMode openMode)
         : filePath(std::move(filePath)), configHeader() {
-    debug([] { std::clog << "L: " << ALeafNode::BytesSize() << " I: " << AInnerNode::BytesSize() << '\n'; });
+    Tools::debug([] { std::clog << "L: " << ALeafNode::BytesSize() << " I: " << AInnerNode::BytesSize() << '\n'; });
     this->fileHandle.rdbuf()->pubsetbuf(0, 0);
     switch (openMode) {
         case OpenMode::USE_EXISTING:
             if (!fs::is_regular_file(this->filePath))
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
-            debug([this] { std::clog << "Opening file: " << fs::absolute(this->filePath) << '\n'; });
+            Tools::debug([this] { std::clog << "Opening file: " << fs::absolute(this->filePath) << '\n'; });
             this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::ate);
             if (this->fileHandle.bad())
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
@@ -107,13 +109,13 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path f
             this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::trunc);
             if (!this->fileHandle.good())
                 throw std::runtime_error("Error opening file: " + fs::absolute(this->filePath).string());
-            debug([this] { std::clog << "Creating new db using file: " << fs::absolute(this->filePath) << '\n'; });
+            Tools::debug([this] { std::clog << "Creating new db using file: " << fs::absolute(this->filePath) << '\n'; });
             this->root = std::make_shared<ALeafNode>(AllocateDiskMemory(NodeType::LEAF), this->fileHandle);
             this->updateConfigHeader();
             break;
     }
 
-    debug([this] { std::clog << "Root: " << *this->root << '\n'; }, 3);
+    Tools::debug([this] { std::clog << "Root: " << *this->root << '\n'; }, 3);
 }
 
 
@@ -349,7 +351,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::updateConfigHeader()
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printTree() {
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::print() {
     this->printNodeAndDescendants(this->root);
     return *this;
 }
@@ -421,7 +423,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperDescendant
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::display() {
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::draw() {
     GVC_t *gvc;
     Agraph_t *g;
     gvc = gvContext();
@@ -445,7 +447,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintTree() {
     ss << "digraph g{node [ shape = record,height=.1];";
     gvcPrintNodeAndDescendants(this->root, ss);
     ss << "}";
-    debug([&] { std::clog << ss.str() << '\n'; }, 1);
+    Tools::debug([&] { std::clog << ss.str() << '\n'; }, 1);
     return ss;
 }
 
@@ -502,6 +504,10 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::mergeAndRemove(std::shared_ptr<BPlusTree::ANode> node,
                                                                                 TKey const &key) {
 
+}
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::truncate() {
+    //*this = BPlusTree(this->filePath, OpenMode::CREATE_NEW);// TODO: test this;
 }
 
 

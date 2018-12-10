@@ -9,8 +9,8 @@
 #include <memory>
 #include <iostream>
 #include <bitset>
+#include "dbms.hh"
 #include "tools.hh"
-
 template<typename TKey, typename TValue> class Node;
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
@@ -63,17 +63,17 @@ template<typename TKey, typename TValue>
 Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent)
         : fileHandle(fileHandle), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(false),
           loaded(false) {
-    debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; }, 2);
+    Tools::debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; }, 2);
 }
 
 
 template<typename TKey, typename TValue> Node<TKey, TValue>::~Node() {
-    debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; },2 );
+    Tools::debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; },2 );
 }
 
 
 template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
-    debug([this] { std::clog << "Removing node: " << fileOffset << '\n'; }, 2);
+    Tools::debug([this] { std::clog << "Removing node: " << fileOffset << '\n'; }, 2);
     this->empty = true;
     this->changed = true;
     this->unload();
@@ -94,7 +94,7 @@ template<typename TKey, typename TValue> std::vector<uint8_t> Node<TKey, TValue>
 
 
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::load() {
-    debug([this] { std::clog << "Loading node at: " << this->fileOffset << '\n'; }, 3);
+    Tools::debug([this] { std::clog << "Loading node at: " << this->fileOffset << '\n'; }, 3);
     this->fileHandle.flush();
     if (!this->fileHandle.good())
         throw std::runtime_error("loading node error");
@@ -119,15 +119,15 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
 
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::unload() {
     if (!changed) {
-        debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 3);
+        Tools::debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 3);
         return *this;
     }
-    debug([this] { std::clog << "Unloading node at: " << this->fileOffset << '\n'; }, 3);
+    Tools::debug([this] { std::clog << "Unloading node at: " << this->fileOffset << '\n'; }, 3);
     this->fileHandle.seekp(this->fileOffset);
     auto bytes = this->serialize();
     fileHandle.clear();
     this->fileHandle.write(reinterpret_cast<char *>(bytes.data()), this->bytesSize());
-    if (!this->fileHandle.good())debug([] { std::clog << "Error while writing node\n"; });
+    if (!this->fileHandle.good())Tools::debug([] { std::clog << "Error while writing node\n"; });
     this->changed = false;
     this->loaded = true;
     return *this;
