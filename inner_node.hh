@@ -171,6 +171,13 @@ InnerNode<TKey, TValue, TDegree>::getEntries() const {
 template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree> &
 InnerNode<TKey, TValue, TDegree>::setEntries(std::pair<std::vector<TKey>, std::vector<size_t>> const &entries) {
+    if (entries.first.size() > this->keys.size())
+        throw std::runtime_error(
+                "Internal DB error: too many entries (keys) to set in node: " + std::to_string(this->fileOffset));
+    if (entries.second.size() > this->descendants.size())
+        throw std::runtime_error(
+                "Internal DB error: too many entries (descendants) to set in node: " + std::to_string(this->fileOffset));
+
     this->changed = true;
     this->keys = KeysCollection();
     this->descendants = DescendantsCollection();
@@ -184,6 +191,9 @@ template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree> &
 InnerNode<TKey, TValue, TDegree>::setKeys(typename std::vector<TKey>::iterator begIt,
                                           typename std::vector<TKey>::iterator endIt) {
+    if (endIt - begIt > this->keys.size())
+        throw std::runtime_error(
+                "Internal DB error: too many keys to set in node: " + std::to_string(this->fileOffset));
     this->changed = true;
     this->keys = KeysCollection();
     std::copy(begIt, endIt, this->keys.begin());
@@ -195,6 +205,9 @@ template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree> &
 InnerNode<TKey, TValue, TDegree>::setDescendants(typename std::vector<size_t>::iterator begIt,
                                                  typename std::vector<size_t>::iterator endIt) {
+    if (endIt - begIt > this->descendants.size())
+        throw std::runtime_error(
+                "Internal DB error: too many descendants to set in node: " + std::to_string(this->fileOffset));
     this->changed = true;
     this->descendants = DescendantsCollection();
     std::copy(begIt, endIt, this->descendants.begin());
@@ -282,7 +295,8 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
 
     // get middleKey and middleDescendant
     auto middleKeyIterator = allKeys.begin() + (allKeys.size() - 1) / 2;
-    auto middleDescendantIterator = allDescendants.begin() + (allDescendants.size() - 1) / 2;
+    //auto middleDescendantIterator = allDescendants.begin() + (allDescendants.size() - 1) / 2;
+    auto middleDescendantIterator = allDescendants.begin() + std::distance(allKeys.begin(), middleKeyIterator);
 
     // if size of descendants and keys is bad -> something went wrong
     if (allDescendants.size() != allKeys.size() + 1)
@@ -291,6 +305,9 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
     // split data among nodes
     nodes.first->setKeys(allKeys.begin(), middleKeyIterator);
     nodes.second->setKeys(middleKeyIterator + 1, allKeys.end());
+
+    // adding order because more descendants stay in original node while compensation,
+    // but original node can be both left and right, so it is here to distinct these two cases
     nodes.first->setDescendants(allDescendants.begin(), middleDescendantIterator + 1);
     nodes.second->setDescendants(middleDescendantIterator + 1, allDescendants.end());
 
@@ -301,14 +318,14 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
 template<typename TKey, typename TValue, size_t TDegree>
 std::stringstream &
 InnerNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
-    ss << "node" << this->fileOffset << "[label=\"";
+    ss << "node" << this->fileOffset << "[ xlabel = \"" << this->fileOffset << "\"label=\"";
     auto[keys, descendants] = this->getEntries();
     int i;
     for (i = 0; i < keys.size(); ++i) {
-        ss << "<f" << i << ">" << /*descendants[i]*/"*" << "|" << keys[i] << '|';
+        ss << "<f" << i << ">" << "*" << /*descendants[i] <<*/ "|" << keys[i] << '|';
     }
-    ss << "<f" << i << '>' << /*descendants[i]*/"*" << "\"];\n"; // TODO: changeit after the fix
-    for (int i = 0; i < descendants.size(); ++i) {
+    ss << "<f" << i << '>' << "*" << /*descendants[i] <<*/ "\"];\n"; // TODO: changeit after the fix
+    for (i = 0; i < descendants.size(); ++i) {
         ss << "\"node" << this->fileOffset << "\":" << 'f' << i << " -> \"node" << descendants[i] << "\"\n";
     }
     return ss;

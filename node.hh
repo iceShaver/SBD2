@@ -63,17 +63,17 @@ template<typename TKey, typename TValue>
 Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent)
         : fileHandle(fileHandle), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(false),
           loaded(false) {
-    debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; });
+    debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; }, 2);
 }
 
 
 template<typename TKey, typename TValue> Node<TKey, TValue>::~Node() {
-    debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; });
+    debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; },2 );
 }
 
 
 template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
-    debug([this] { std::clog << "Removing node: " << fileOffset << '\n'; });
+    debug([this] { std::clog << "Removing node: " << fileOffset << '\n'; }, 2);
     this->empty = true;
     this->changed = true;
     this->unload();

@@ -429,7 +429,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::display() {
     std::string filePath = tmpnam(nullptr);
     auto file = fopen(filePath.c_str(), "w");
     gvLayout(gvc, g, "dot");
-    gvRender(gvc, g, "png", file);
+    gvRender(gvc, g, "svg", file);
     gvFreeLayout(gvc, g);
     agclose(g);
     system(("xdg-open " + filePath).c_str());
@@ -442,10 +442,10 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 std::stringstream
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintTree() {
     std::stringstream ss;
-    ss << "digraph g{node [shape = record,height=.1];";
+    ss << "digraph g{node [ shape = record,height=.1];";
     gvcPrintNodeAndDescendants(this->root, ss);
     ss << "}";
-    debug([&] { std::clog << ss.str() << '\n'; }, 2);
+    debug([&] { std::clog << ss.str() << '\n'; }, 1);
     return ss;
 }
 
