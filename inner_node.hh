@@ -32,6 +32,7 @@ public:
     InnerNode &setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key);
     TKey getKeyBetweenPtrs(size_t aPtr, size_t bPtr);
     std::stringstream &print(std::stringstream &ss) const override;
+    bool contains(TKey const &key) const override;
 
 
     DescendantsCollection descendants;
@@ -311,6 +312,16 @@ InnerNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
         ss << "\"node" << this->fileOffset << "\":" << 'f' << i << " -> \"node" << descendants[i] << "\"\n";
     }
     return ss;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+bool InnerNode<TKey, TValue, TDegree>::contains(TKey const &key) const {
+    for (auto &element : keys) {
+        if (!element) return false;
+        if (*element == key) return true;
+    }
+    return false;
 }
 
 

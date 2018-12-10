@@ -24,7 +24,7 @@ public:
     static size_t BytesSize();
     LeafNode &insert(TKey const &key, TValue const &value);
     bool full() const override;
-    bool keyExists(TKey key) const;
+    bool contains(TKey const &key) const override;
     TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value,
                                           size_t nodeOffset) override;
 
@@ -248,7 +248,8 @@ LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_pt
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-bool LeafNode<TKey, TValue, TDegree>::keyExists(TKey key) const {
+bool
+LeafNode<TKey, TValue, TDegree>::contains(TKey const & key) const {
     for (auto &element : keys) {
         if (!element) return false;
         if (*element == key) return true;

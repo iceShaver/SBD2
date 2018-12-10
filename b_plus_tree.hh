@@ -57,11 +57,14 @@ public:
     static std::shared_ptr<ANode> ReadNode(std::fstream &fileHandle, size_t fileOffset);
     size_t AllocateDiskMemory(NodeType nodeType);
     void addRecord(TKey const &key, TValue const &value);
+    void removeRecord(TKey const &key);
     size_t findProperDescendantOffset(std::shared_ptr<ANode> node, TKey const &key);
+    std::shared_ptr<ALeafNode> findProperLeaf(TKey const &key);
     bool tryCompensateAndAdd(std::shared_ptr<ANode> node,
                              TKey const &key, TValue const &value, size_t nodeOffset = 0);
     void splitAndAddRecord(std::shared_ptr<ANode> node,
                            TKey const &key, TValue const &value, size_t addedNodeOffset = 0);
+    void mergeAndRemove(std::shared_ptr<ANode> node, TKey const &key); // TODO: check if nodeOffset is necessary
     std::shared_ptr<ANode> getNodeUnfilledNeighbour(std::shared_ptr<ANode> node);
     BPlusTree &printTree();
     std::stringstream gvcPrintTree();
@@ -201,7 +204,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     return offset;
 }
 
-
+// TODO: ??make params optional?? or allow node to have more records and compensate/split/ it after adding record
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 bool
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::tryCompensateAndAdd(std::shared_ptr<ANode> node,
@@ -373,33 +376,26 @@ void
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::addRecord(TKey const &key, TValue const &value) {
 
     // find leaf to insert record into
-    std::shared_ptr<ANode> node = root;
-    while (node->nodeType() != NodeType::LEAF) {
-        auto descendantOffset = findProperDescendantOffset(node, key);
-        auto nextNode = ReadNode(this->fileHandle, descendantOffset);
-        nextNode->parent = node;
-        node = nextNode;
-    }
-    auto leafNode = std::dynamic_pointer_cast<ALeafNode>(node);
+    auto leafNode = this->findProperLeaf(key);
 
     // if key exists then exit
-    if (leafNode->keyExists(key)) {
+    if (leafNode->contains(key)) {
         std::cout << "Given key already exists. Record not added.\n";
         return;
     }
 
     // if node not full -> insert record
-    if (!node->full()) {
+    if (!leafNode->full()) {
         leafNode->insert(key, value);
         return;
     }
 
     // else try compensate node and add record
-    bool compensationSucceeded = tryCompensateAndAdd(node, key, value);
+    bool compensationSucceeded = tryCompensateAndAdd(leafNode, key, value);
     if (compensationSucceeded) return;
 
     // else split node and add record
-    splitAndAddRecord(node, key, value);
+    splitAndAddRecord(leafNode, key, value);
 }
 
 
@@ -466,6 +462,46 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintNodeAndDesce
         }
     }
     return ss;
+}
+
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+std::shared_ptr<typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ALeafNode>
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperLeaf(TKey const &key) {
+    std::shared_ptr<ANode> node = root;
+    while (node->nodeType() != NodeType::LEAF) {
+        auto descendantOffset = findProperDescendantOffset(node, key);
+        auto nextNode = ReadNode(this->fileHandle, descendantOffset);
+        nextNode->parent = node;
+        node = nextNode;
+    }
+    return std::dynamic_pointer_cast<ALeafNode>(node);
+}
+
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+void
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::removeRecord(TKey const &key) {
+    auto node = this->findProperLeaf(key);
+    if(!node->contains(key)){
+        std::cout << "Key " << key << "doesn't exist\n";
+        return;
+    }
+
+    // remove
+    // if node size is OK -> return
+
+    // else try compensate with neighbour
+
+    // else merge with neighbour (sum of elements of node and neighbour has to be <TLeafNodeDegree, 2*TLeafNodeDegree>
+    // if parent has then less than TInnerNodeDegree keys -> try compensate parent, if not possible -> merge
+
+    // done
+}
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::mergeAndRemove(std::shared_ptr<BPlusTree::ANode> node,
+                                                                                TKey const &key) {
+
 }
 
 

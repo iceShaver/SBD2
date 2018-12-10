@@ -35,6 +35,7 @@ public:
 
     virtual std::ostream &print(std::ostream &o) const = 0;
     virtual std::stringstream &print(std::stringstream &ss) const = 0;
+    virtual bool contains(TKey const &key)const=0;
     Node &load();
     Node &unload();
     Node &markEmpty();
