@@ -171,7 +171,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t file
     char header;
     auto readData = this->diskRead(fileOffset,
                                    sizeof(header) + std::max(AInnerNode::BytesSize(), ALeafNode::BytesSize()));
-    fileHandle.clear();
+    fileHandle.clear(); // since we read max of both nodes, we can go eof
     header = readData[0];
     readData.erase(readData.begin());
     if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node!");
@@ -182,22 +182,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t file
         result = std::make_shared<ALeafNode>(fileOffset, fileHandle);
     result->load(readData);
     return result;
-/*    // TODO: changeit to read only one time
-    char header;
-
-    auto readData = this->diskRead(fileOffset,
-                                   sizeof(header) + std::max(AInnerNode::BytesSize(), ALeafNode::BytesSize()));
-    fileHandle.clear();
-    fileHandle.seekg(fileOffset);
-    fileHandle.read(&header, 1);
-    if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node!");
-    std::shared_ptr<ANode> result = nullptr;
-    if (std::bitset<8>(header)[1] == static_cast<int>(NodeType::INNER))
-        result = std::make_shared<AInnerNode>(fileOffset, fileHandle);
-    if (std::bitset<8>(header)[1] == static_cast<int>(NodeType::LEAF))
-        result = std::make_shared<ALeafNode>(fileOffset, fileHandle);
-    result->load();
-    return result;*/
 }
 
 
@@ -205,7 +189,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t file
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 size_t
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(NodeType nodeType) {
-    /*std::fpos<mbstate_t> result;
+    std::fpos<mbstate_t> result;
     auto currentOffset = sizeof(configHeader);
     while (true) {
         char nodeHeader = this->diskRead<char>(currentOffset);
@@ -244,52 +228,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
     // it is for extending the file to needed size, TODO: do something better
     if (nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).markChanged();
     else AInnerNode(offset, this->fileHandle).markChanged();
-    return offset;*/
-    std::fpos<mbstate_t> result;
-    this->fileHandle.seekg(sizeof(configHeader));
-    char header;
-    while (true) {
-        this->fileHandle.read(&header, 1);
-
-        // if end of file
-        if (this->fileHandle.tellg() >= fs::file_size(this->filePath)) {
-            if (this->fileHandle.eof()) {
-                this->fileHandle.clear();
-                result = this->fileHandle.tellg();
-            } else {
-                result = this->fileHandle.tellg() - 1;
-            }
-            break;
-        }
-
-        // if found space is empty and big enough
-        if (std::bitset<8>(header)[1] == static_cast<int>(nodeType) && std::bitset<8>(header)[0] == true) {
-            result = this->fileHandle.tellg() - 1;
-            break;
-        }
-
-        // not empty -> search next
-        auto stepSize = (std::bitset<8>(header)[1] == static_cast<int>(NodeType::LEAF))
-                        ? ALeafNode::BytesSize()
-                        : AInnerNode::BytesSize();
-        int64_t currentPosition = this->fileHandle.tellg() - 1;
-        this->fileHandle.seekg(currentPosition + stepSize);
-    }
-    if (result < 0) throw std::runtime_error("Unable to allocate disk memory");
-    auto offset = static_cast<size_t>(result);
-
-    // This is only for purpose of mark space as occupied, TODO: do something more efficient e.g.: create header only
-    this->fileHandle.seekp(offset);
-    std::bitset<8> newHeader;
-    newHeader[1] = static_cast<int>(nodeType);
-    newHeader[0] = false; // not empty;
-    char headerByte = static_cast<char>(newHeader.to_ulong());
-    this->fileHandle.write(&headerByte, 1);
-    // it is for extending the file to needed size, TODO: do something better
-    if (nodeType == NodeType::LEAF) ALeafNode(offset, this->fileHandle).markChanged();
-    else AInnerNode(offset, this->fileHandle).markChanged();
-    this->fileHandle.flush();
-//    this->allocationsCounter++;
     return offset;
 }
 
