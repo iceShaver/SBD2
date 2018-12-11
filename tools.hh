@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <functional>
+#include <cxxabi.h>
 
 namespace Tools {
     struct Config {
@@ -23,6 +24,12 @@ namespace Tools {
     template<typename _F> constexpr inline static void debug(_F f, size_t level = 1) {
         if (Config::debugLevel >= level)
             std::invoke(f);
+    }
+
+    template<typename T> std::string typeName() {
+        std::unique_ptr<char, void (*)(void *)> t(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr),
+                                                  std::free);
+        return t ? t.get() : typeid(T).name();
     }
 }
 #endif //SBD2_TOOLS_HH

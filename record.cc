@@ -26,7 +26,7 @@ Record::Record(std::string const&string) {
     auto grade1 = std::stoul(tokens[0]);
     auto grade2 = std::stoul(tokens[1]);
     auto grade3 = std::stoul(tokens[2]);
-    *this = Record(grade1, grade2, grade3);
+    *this = std::move(Record(grade1, grade2, grade3));
 }
 
 

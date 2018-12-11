@@ -23,6 +23,8 @@ public:
     ValuesCollection values;
     static size_t BytesSize();
     LeafNode &insert(TKey const &key, TValue const &value);
+    std::optional<TValue> readRecord(TKey const &key) const;
+    void updateRecord(TKey const &key, TValue const &value);
     bool full() const override;
     bool contains(TKey const &key) const override;
     TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value,
@@ -37,7 +39,7 @@ public:
 
 private:
     std::ostream &print(std::ostream &o) const override;
-    Node<TKey, TValue> &deserialize(std::vector<uint8_t> const &bytes) override;
+    Node<TKey, TValue> &deserialize(std::vector<char> const &bytes) override;
     std::vector<uint8_t> getData() override;
     size_t elementsSize() const override;
     size_t fillElementsSize() const override;
@@ -86,7 +88,7 @@ LeafNode<TKey, TValue, TDegree>::getData() {
 
 template<typename TKey, typename TValue, size_t TDegree>
 Node<TKey, TValue> &
-LeafNode<TKey, TValue, TDegree>::deserialize(std::vector<uint8_t> const &bytes) {
+LeafNode<TKey, TValue, TDegree>::deserialize(std::vector<char> const &bytes) {
     this->changed = true;
     auto valuesBytePtr = (std::array<uint8_t, sizeof(this->values)> *) this->values.data();
     auto keysBytePtr = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();
@@ -152,6 +154,32 @@ LeafNode<TKey, TValue, TDegree>::insert(TKey const &key, TValue const &value) {
                                     [](auto x, auto y) { return x.first < y.first; }), std::pair(key, value));
     this->setRecords(records);
     return *this;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+std::optional<TValue>
+LeafNode<TKey, TValue, TDegree>::readRecord(TKey const &key) const {
+    for (int i = 0; i < keys.size(); ++i) {
+        if (keys[i] == std::nullopt) break;
+        if (keys[i] == key) return values[i];
+    }
+    return std::nullopt;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+void
+LeafNode<TKey, TValue, TDegree>::updateRecord(TKey const &key, TValue const &value) {
+    for (int i = 0; i < keys.size(); ++i) {
+        if (keys[i] == std::nullopt) break;
+        if (keys[i] == key) {
+            values[i] = value;
+            this->markChanged();
+            return;
+        }
+    }
+    throw std::runtime_error("LeafNode->updateRecord: record with key: " + std::to_string(key) + " not found");
 }
 
 

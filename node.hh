@@ -11,9 +11,14 @@
 #include <bitset>
 #include "dbms.hh"
 #include "tools.hh"
+
+
 template<typename TKey, typename TValue> class Node;
+
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
+
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
+
 template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &, Node<TKey, TValue> const &);
 template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &, Node<TKey, TValue> const &);
 
@@ -35,8 +40,9 @@ public:
 
     virtual std::ostream &print(std::ostream &o) const = 0;
     virtual std::stringstream &print(std::stringstream &ss) const = 0;
-    virtual bool contains(TKey const &key)const=0;
+    virtual bool contains(TKey const &key) const = 0;
     Node &load();
+    Node &load(std::vector<char> const &bytes);
     Node &unload();
     Node &markEmpty();
     Node &markChanged();
@@ -50,7 +56,7 @@ protected:
     virtual size_t bytesSize() const = 0;
     virtual std::vector<uint8_t> getData() = 0;
     std::vector<uint8_t> serialize();
-    virtual Node &deserialize(std::vector<uint8_t> const &bytes) = 0;
+    virtual Node &deserialize(std::vector<char> const &bytes) = 0;
     void remove();
     std::fstream &fileHandle;
     bool empty;
@@ -68,7 +74,7 @@ Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std:
 
 
 template<typename TKey, typename TValue> Node<TKey, TValue>::~Node() {
-    Tools::debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; },2 );
+    Tools::debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; }, 2);
 }
 
 
@@ -93,9 +99,18 @@ template<typename TKey, typename TValue> std::vector<uint8_t> Node<TKey, TValue>
 }
 
 
+template<typename TKey, typename TValue>
+Node<TKey, TValue> &
+Node<TKey, TValue>::load(std::vector<char> const &bytes) {
+    Tools::debug([this] { std::clog << "Constructing node from bytes: " << this->fileOffset << '\n'; }, 3);
+    this->deserialize(bytes);
+    this->loaded = true;
+    this->changed = false;
+}
+
+
 template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::load() {
     Tools::debug([this] { std::clog << "Loading node at: " << this->fileOffset << '\n'; }, 3);
-    this->fileHandle.flush();
     if (!this->fileHandle.good())
         throw std::runtime_error("loading node error");
     this->fileHandle.seekg(this->fileOffset);
@@ -117,7 +132,9 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
 }
 
 
-template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::unload() {
+template<typename TKey, typename TValue>
+Node<TKey, TValue> &
+Node<TKey, TValue>::unload() {
     if (!changed) {
         Tools::debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 3);
         return *this;

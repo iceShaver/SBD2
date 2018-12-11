@@ -42,7 +42,7 @@ private:
     size_t getKeyIndexBetweenPtrs(size_t aPtr, size_t bPtr);
     size_t fillElementsSize() const override;
     std::ostream &print(std::ostream &o) const override;
-    Node<TKey, TValue> &deserialize(std::vector<uint8_t> const &bytes) override;
+    Node<TKey, TValue> &deserialize(std::vector<char> const &bytes) override;
     std::vector<uint8_t> getData() override;
     NodeType nodeType() const override;
     size_t bytesSize() const override;
@@ -87,7 +87,7 @@ InnerNode<TKey, TValue, TDegree>::elementsSize() const {
 
 template<typename TKey, typename TValue, size_t TDegree>
 Node<TKey, TValue> &
-InnerNode<TKey, TValue, TDegree>::deserialize(std::vector<uint8_t> const &bytes) {
+InnerNode<TKey, TValue, TDegree>::deserialize(std::vector<char> const &bytes) {
     this->changed = true;
     auto descendantsBytePtr = (std::array<uint8_t, sizeof(this->descendants)> *) this->descendants.data();
     auto keysBytePtr = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();

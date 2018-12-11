@@ -7,7 +7,7 @@
 
 #include <string>
 #include <functional>
-#include <unordered_map>
+#include <map>
 #include <memory>
 #include <any>
 #include <filesystem>
@@ -19,30 +19,34 @@ class Record;
 
 
 class Dbms final {
-    using BTreeType = BPlusTree<int64_t, Record, 3, 2>;
+    using BTreeType = BPlusTree<int64_t, Record, 1, 2>;
 public:
     int main(int argc, char **argv);
 
 private:
     void test() const;
     void initCommands();
+    void initAutocompletion();
     void commandLineLoop();
     void processInputLine(std::string const &line);
     void printHelp();
     void exit();
 
-    void loadDbFile(std::string const&params);
     void createDbFile(std::string const&params);
+    void loadDbFile(std::string const&params);
     void closeDbFile();
     void printDbFile();
+
     void create_record(std::string const&params);
-    void remove_record(std::string const&params);
+    void read_record(std::string const &params);
     void update_record(std::string const&params);
     void delete_record(std::string const&params);
+
     void print_records(std::string const&params);
+    void print_statistics();
 
 
-    std::unordered_map<std::string, std::pair<std::function<void(std::string)>, std::string>> commands;
+    static std::map<std::string, std::tuple<std::function<void(std::string const &params)>, std::string>> commands;
     std::unique_ptr<BTreeType> tree;
 
 
