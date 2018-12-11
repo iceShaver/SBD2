@@ -70,19 +70,19 @@ void Dbms::InitCommands() {
             {"open",           {LoadDbFile,         "Open specified db file"}},
             {"new",            {CreateDbFile,       "Create new db file at specified location"}},
             {"close",          {CloseDbFile,        "Save and close db file"}},
-            {"printdbfile",  {PrintDbFile,        "Print content of db file in human readable form to stdout"}},
+            {"printdbfile",    {PrintDbFile,        "Print content of db file in human readable form to stdout"}},
             {"test",           {Test,               "Test program"}},
             // tree operations
-            {"printtree",     {PrintTree,          "Print all nodes of tree to stdout"}},
+            {"printtree",      {PrintTree,          "Print all nodes of tree to stdout"}},
             {"draw",           {DrawTree,           "Draw and display tree as svg picture"}},
-            {"truncatetree",  {TruncateTree,       "Remove all records, clean db file"}},
+            {"truncatetree",   {TruncateTree,       "Remove all records, clean db file"}},
             // records operations
             {"create",         {CreateRecord,       "Create new record"}},
             {"read",           {ReadRecord,         "Read record"}},
             {"update",         {UpdateRecord,       "Update record"}},
             {"delete",         {DeleteRecord,       "Delete record"}},
             {"printrecords",   {PrintRecords,       "Print all records in order by key value"}},
-            {"stats",           {PrintStatistics,    "Print DB statistics"}}
+            {"stats",          {PrintStatistics,    "Print DB statistics"}}
     };
     // @formatter:on
 }
