@@ -198,7 +198,7 @@ LeafNode<TKey, TValue, TDegree>::getRecords() const {
 template<typename TKey, typename TValue, size_t TDegree>
 std::stringstream &
 LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
-    ss << "node" << this->fileOffset << "[ xlabel = \"" << this->fileOffset << "\"label=<";
+    ss << "node" << this->fileOffset << "[label=<";
     auto records = this->getRecords();
     for (auto it = records.begin(); it != records.end(); it++)
         ss << it->first << '|' << "<font color='blue'>" << /*it->second*/"R" << "</font>"
