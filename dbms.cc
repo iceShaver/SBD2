@@ -12,164 +12,83 @@
 #include <cstring>
 #include "unique_generator.hh"
 
-std::map<std::string, std::tuple<std::function<void(std::string const &params)>, std::string>> Dbms::commands;
 
-int Dbms::main(int argc, char **argv) {
+int Dbms::Main(int argc, char **argv) {
 
-    this->initCommands();
-    this->initAutocompletion();
-    this->commandLineLoop();
-    this->exit();
+    InitCommands();
+    InitAutocompletion();
+    CommandLineLoop();
+    Exit();
     return 0;
 }
 
 
-void Dbms::test() const {
-    BPlusTree<int64_t, Record, 1, 1> t("test.bin", OpenMode::CREATE_NEW);
+void Dbms::Test(std::string const &params) {
+    BPlusTree<int64_t, Record, 1, 1> t("Test.bin", OpenMode::CREATE_NEW);
     /*for (int i = 0; i < 1000; ++i) {
         t.createRecord(UniqueGenerator<2000, 3000>::GetRandom(), Record::Random());
     }*/
-    std::cout << "Add: " << 20 << '\n';
-    t.createRecord(20, Record{25, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 50 << '\n';
-    t.createRecord(50, Record{12, 58, 45});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 40 << '\n';
-    t.createRecord(40, Record{45, 78, 78});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 80 << '\n';
-    t.createRecord(80, Record{25, 65, 12});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 70 << '\n';
-    t.createRecord(70, Record{32, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 30 << '\n';
-    t.createRecord(30, Record{25, 65, 98});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 10 << '\n';
-    t.createRecord(10, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    t.print();
-    std::cout << "Add: " << 0 << '\n';
-    t.createRecord(0, Record::Random());
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 15 << '\n';
-    t.createRecord(15, Record::Random());
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 39 << '\n';
-    t.createRecord(39, Record::Random());
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 1000 << '\n';
-    t.createRecord(1000, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << -1000 << '\n';
-    t.createRecord(-1000, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << -555 << '\n';
-    t.createRecord(-555, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 9999 << '\n';
-    t.createRecord(9999, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 453 << '\n';
-    t.createRecord(453, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 543 << '\n';
-    t.createRecord(543, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 123 << '\n';
-    t.createRecord(123, Record{25, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 12 << '\n';
-    t.createRecord(12, Record{12, 58, 45});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 456 << '\n';
-    t.createRecord(456, Record{45, 78, 78});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 789 << '\n';
-    t.createRecord(789, Record{25, 65, 12});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 987 << '\n';
-    t.createRecord(987, Record{32, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 3147 << '\n';
-    t.createRecord(3147, Record{25, 65, 98});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 1654 << '\n';
-    t.createRecord(1654, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 1046 << '\n';
-    t.createRecord(1000546, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << -1045 << '\n';
-    t.createRecord(-100045, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 4531 << '\n';
-    t.createRecord(4531, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
-    std::cout << "Add: " << 5431 << '\n';
-    t.createRecord(5431, Record{21, 58, 69});
-    t.print();
-    std::cout << '\n';
+    // @formatter:off
+    std::cout<<"Add: "<<20<<'\n';t.createRecord(20,Record{25,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<50<<'\n';t.createRecord(50,Record{12,58,45});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<40<<'\n';t.createRecord(40,Record{45,78,78});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<80<<'\n';t.createRecord(80,Record{25,65,12});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<70<<'\n';t.createRecord(70,Record{32,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<30<<'\n';t.createRecord(30,Record{25,65,98});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<10<<'\n';t.createRecord(10,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<0<<'\n'; t.createRecord(00,Record::Random());t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<15<<'\n';t.createRecord(15,Record::Random());t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<39<<'\n';t.createRecord(39,Record::Random());t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<1000<<'\n';t.createRecord(1000,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<-1000<<'\n';t.createRecord(-1000,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<-555<<'\n';t.createRecord(-555,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<9999<<'\n';t.createRecord(9999,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<453<<'\n';t.createRecord(453,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<543<<'\n';t.createRecord(543,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<123<<'\n';t.createRecord(123,Record{25,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<12<<'\n';t.createRecord(12,Record{12,58,45});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<456<<'\n';t.createRecord(456,Record{45,78,78});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<789<<'\n';t.createRecord(789,Record{25,65,12});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<987<<'\n';t.createRecord(987,Record{32,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<3147<<'\n';t.createRecord(3147,Record{25,65,98});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<1654<<'\n';t.createRecord(1654,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<1046<<'\n';t.createRecord(1000546,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<-1045<<'\n';t.createRecord(-100045,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<4531<<'\n';t.createRecord(4531,Record{21,58,69});t.print();std::cout<<'\n';
+    std::cout<<"Add: "<<5431<<'\n';t.createRecord(5431,Record{21,58,69});t.print();std::cout<<'\n';
     t.draw();
+    // @formatter:on
 }
 
 
-void Dbms::initCommands() {
+void Dbms::InitCommands() {
     // @formatter:off
     commands = {
             // dbms operations
-            {"help",           {[this](auto const &params) -> void{ this->printHelp(); },            "Prints this help"}},
-            {"exit",           {[this](auto const &params) -> void{ this->exit(); },                 "Close DB file and exit program"}},
-            {"open",   {[this](auto const &params) -> void{ this->loadDbFile(params); },     "Open specified db file"}},
-            {"new", {[this](auto const &params) -> void{ this->createDbFile(params); },   "Create new db file at specified location"}},
-            {"close",  {[this](auto const &params) -> void{ this->closeDbFile(); },          "Save and close db file"}},
-            {"print_db_file",  {[this](auto const &params) -> void{ this->printDbFile(); },          "Print content of db file in human readable form to stdout"}},
-            {"test",           {[this](auto const &params) -> void{ this->test(); },                 "Test program"}},
+            {"help",           {PrintHelp,          "Prints this help"}},
+            {"exit",           {Exit,               "Close DB file and Exit program"}},
+            {"open",           {LoadDbFile,         "Open specified db file"}},
+            {"new",            {CreateDbFile,       "Create new db file at specified location"}},
+            {"close",          {CloseDbFile,        "Save and close db file"}},
+            {"printdbfile",  {PrintDbFile,        "Print content of db file in human readable form to stdout"}},
+            {"test",           {Test,               "Test program"}},
             // tree operations
-            {"print_tree",     {[this](auto const &params) -> void{ this->tree->print(); },          "Print all nodes of tree to stdout"}},
-            {"draw",      {[this](auto const &params) -> void{ this->tree->draw(); },           "Draw and display tree as svg picture"}},
-            {"truncate_tree",  {[this](auto const &params) -> void{ this->tree->truncate(); },       "Remove all records, clean db file"}},
+            {"printtree",     {PrintTree,          "Print all nodes of tree to stdout"}},
+            {"draw",           {DrawTree,           "Draw and display tree as svg picture"}},
+            {"truncatetree",  {TruncateTree,       "Remove all records, clean db file"}},
             // records operations
-            {"create",         {[this](auto const &params) -> void{ this->create_record(params); },  "Create new record"}},
-            {"read",           {[this](auto const &params) -> void{ this->read_record(params); },    "Read record"}},
-            {"update",         {[this](auto const &params) -> void{ this->update_record(params); },  "Update record"}},
-            {"delete",         {[this](auto const &params) -> void{ this->delete_record(params); },  "Delete record"}},
-            {"print_records",  {[this](auto const &params) -> void{ this->print_records(params); },  "Print all records in order by key value"}},
-            {"stat",           {[this](auto const &params) -> void{ this->print_statistics(); },     "Print DB statistics"}}
+            {"create",         {CreateRecord,       "Create new record"}},
+            {"read",           {ReadRecord,         "Read record"}},
+            {"update",         {UpdateRecord,       "Update record"}},
+            {"delete",         {DeleteRecord,       "Delete record"}},
+            {"printrecords",   {PrintRecords,       "Print all records in order by key value"}},
+            {"stats",           {PrintStatistics,    "Print DB statistics"}}
     };
     // @formatter:on
 }
 
 
-void Dbms::initAutocompletion() {
+void Dbms::InitAutocompletion() {
     // set quote characters
     rl_completer_quote_characters = "\"'";
 
@@ -201,7 +120,7 @@ void Dbms::initAutocompletion() {
 }
 
 
-void Dbms::commandLineLoop() {
+void Dbms::CommandLineLoop() {
     while (true) {
         char *line = readline("> ");
         if (!line) break;
@@ -210,12 +129,12 @@ void Dbms::commandLineLoop() {
         boost::trim(lineStr);
         if (lineStr.length() == 0) continue;
         add_history(lineStr.c_str());
-        this->processInputLine(lineStr);
+        ProcessInputLine(lineStr);
     }
 }
 
 
-void Dbms::processInputLine(std::string const &line) {
+void Dbms::ProcessInputLine(std::string const &line) {
     auto cmd = line.substr(0, line.find(' '));
     auto lastWhitechar = line.rfind(' ');
     auto params = lastWhitechar == std::string::npos ? "" : line.substr(lastWhitechar + 1);
@@ -229,7 +148,7 @@ void Dbms::processInputLine(std::string const &line) {
 }
 
 
-void Dbms::printHelp() {
+void Dbms::PrintHelp(std::string const &params) {
     std::cout << "Available commands:\n";
     for (auto&[cmd, info] : commands) {
         auto&[func, desc] = info;
@@ -238,12 +157,12 @@ void Dbms::printHelp() {
 }
 
 
-void Dbms::exit() {
+void Dbms::Exit(std::string const &params) {
     tree = nullptr;
     ::exit(0);
 }
 
-void Dbms::loadDbFile(std::string const &params) {
+void Dbms::LoadDbFile(std::string const &params) {
     if (params.empty()) {
         std::cout << "You have to specify file to open\n";
         return;
@@ -263,7 +182,7 @@ void Dbms::loadDbFile(std::string const &params) {
 }
 
 
-void Dbms::createDbFile(std::string const &params) {
+void Dbms::CreateDbFile(std::string const &params) {
     if (params.empty()) {
         std::cout << "You have to specify file to create\n";
         return;
@@ -291,7 +210,7 @@ void Dbms::createDbFile(std::string const &params) {
 }
 
 
-void Dbms::closeDbFile() {
+void Dbms::CloseDbFile(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
@@ -300,7 +219,7 @@ void Dbms::closeDbFile() {
 }
 
 
-void Dbms::printDbFile() {
+void Dbms::PrintDbFile(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
@@ -309,7 +228,7 @@ void Dbms::printDbFile() {
 }
 
 
-void Dbms::create_record(std::string const &params) {
+void Dbms::CreateRecord(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
@@ -323,7 +242,7 @@ void Dbms::create_record(std::string const &params) {
         auto recordToken = params.substr(params.find(' ') + 1);
         auto value = Record(recordToken);
         auto key = std::stoll(keyToken);
-        this->tree->createRecord(key, value);
+        tree->createRecord(key, value);
     } catch (std::out_of_range const &e) {
         std::cout << "Invalid arguments: " << params << '\n';
         std::cout << e.what() << '\n';
@@ -340,7 +259,7 @@ void Dbms::create_record(std::string const &params) {
 }
 
 
-void Dbms::read_record(std::string const &params) {
+void Dbms::ReadRecord(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
@@ -352,7 +271,7 @@ void Dbms::read_record(std::string const &params) {
 
     try {
         auto key = std::stoll(params);
-        auto record = this->tree->readRecord(key);
+        auto record = tree->readRecord(key);
         if (record)
             std::cout << *record << '\n';
         else
@@ -370,7 +289,7 @@ void Dbms::read_record(std::string const &params) {
 }
 
 
-void Dbms::update_record(std::string const &params) {
+void Dbms::UpdateRecord(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
@@ -384,7 +303,7 @@ void Dbms::update_record(std::string const &params) {
         auto recordToken = params.substr(params.find(' ') + 1);
         auto value = Record(recordToken);
         auto key = std::stoll(keyToken);
-        this->tree->updateRecord(key, value);
+        tree->updateRecord(key, value);
     } catch (std::out_of_range const &e) {
         std::cout << "Invalid arguments: " << params << '\n';
         std::cout << e.what() << '\n';
@@ -401,7 +320,7 @@ void Dbms::update_record(std::string const &params) {
 }
 
 
-void Dbms::delete_record(std::string const &params) {
+void Dbms::DeleteRecord(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
@@ -413,25 +332,25 @@ void Dbms::delete_record(std::string const &params) {
 }
 
 
-void Dbms::print_records(std::string const &params) {
+void Dbms::PrintRecords(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
     }
 
 }
-void Dbms::print_statistics() {
+void Dbms::PrintStatistics(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
         return;
     }
     using std::cout;
     cout << "Info & Statistics:\n";
-    cout << std::setw(40) << std::left << "DB file: " << fs::absolute(this->tree->filePath) << '\n';
-    cout << std::setw(40) << std::left << "DB file size: " << fs::file_size(this->tree->filePath) << " bytes\n";
-    cout << std::setw(40) << std::left << "Underlying data type: " << this->tree->name() << '\n';
-    cout << std::setw(40) << std::left << "Inner node degree: " << this->tree->innerNodeDegree() << '\n';
-    cout << std::setw(40) << std::left << "Leaf node degree: " << this->tree->leafNodeDegree() << '\n';
+    cout << std::setw(40) << std::left << "DB file: " << fs::absolute(tree->filePath) << '\n';
+    cout << std::setw(40) << std::left << "DB file size: " << fs::file_size(tree->filePath) << " bytes\n";
+    cout << std::setw(40) << std::left << "Underlying data type: " << tree->name() << '\n';
+    cout << std::setw(40) << std::left << "Inner node degree: " << tree->innerNodeDegree() << '\n';
+    cout << std::setw(40) << std::left << "Leaf node degree: " << tree->leafNodeDegree() << '\n';
     /*cout << std::setw(40) << std::left << "Records number: " << this->tree->recordsNumber() << '\n';
     cout << std::setw(40) << std::left << "Nodes number: " << this->tree->nodesNumber() << '\n';
     cout << std::setw(40) << std::left << "Disk reads count (current session): " << this->tree->diskReadsCount() << '\n';
@@ -445,6 +364,15 @@ void Dbms::print_statistics() {
 
 
 
+
+}
+void Dbms::PrintTree(std::string const &params) {
+
+}
+void Dbms::DrawTree(std::string const &params) {
+
+}
+void Dbms::TruncateTree(std::string const &params) {
 
 }
 

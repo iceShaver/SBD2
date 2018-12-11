@@ -12,6 +12,7 @@
 #include <any>
 #include <filesystem>
 #include "b_plus_tree.hh"
+
 namespace fs = std::filesystem;
 
 class Record;
@@ -20,36 +21,39 @@ class Record;
 
 class Dbms final {
     using BTreeType = BPlusTree<int64_t, Record, 1, 2>;
+
 public:
-    int main(int argc, char **argv);
+    static int Main(int argc, char **argv);
 
 private:
-    void test() const;
-    void initCommands();
-    void initAutocompletion();
-    void commandLineLoop();
-    void processInputLine(std::string const &line);
-    void printHelp();
-    void exit();
+    inline static void InitCommands();
+    inline static void InitAutocompletion();
+    inline static void CommandLineLoop();
+    inline static void ProcessInputLine(std::string const &line);
 
-    void createDbFile(std::string const&params);
-    void loadDbFile(std::string const&params);
-    void closeDbFile();
-    void printDbFile();
+    // Commandline methods
+    inline static void Test(std::string const &params = {});
+    inline static void Exit(std::string const &params = {});
+    inline static void PrintHelp(std::string const &params = {});
+    inline static void CreateDbFile(std::string const &params);
+    inline static void LoadDbFile(std::string const &params);
+    inline static void CloseDbFile(std::string const &params = {});
+    inline static void PrintDbFile(std::string const &params = {});
+    inline static void PrintTree(std::string const &params = {});
+    inline static void DrawTree(std::string const &params = {});
+    inline static void TruncateTree(std::string const &params = {});
+    inline static void PrintRecords(std::string const &params = {});
+    inline static void PrintStatistics(std::string const &params = {});
+    // CRUD operations
+    inline static void CreateRecord(std::string const &params);
+    inline static void ReadRecord(std::string const &params);
+    inline static void UpdateRecord(std::string const &params);
+    inline static void DeleteRecord(std::string const &params);
 
-    void create_record(std::string const&params);
-    void read_record(std::string const &params);
-    void update_record(std::string const&params);
-    void delete_record(std::string const&params);
 
-    void print_records(std::string const&params);
-    void print_statistics();
-
-
-    static std::map<std::string, std::tuple<std::function<void(std::string const &params)>, std::string>> commands;
-    std::unique_ptr<BTreeType> tree;
-
-
+    inline static std::map<std::string,
+            std::tuple<std::function<void(std::string const &params)>, std::string>> commands;
+    inline static std::unique_ptr<BTreeType> tree;
 
 };
 

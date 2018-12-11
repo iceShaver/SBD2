@@ -405,7 +405,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::createRecord(TKey co
     // find leaf to insert record into
     auto leafNode = this->findProperLeaf(key);
 
-    // if key exists then exit
+    // if key exists then Exit
     if (leafNode->contains(key)) {
         std::cout << "Given key already exists. Record not added.\n";
         return;
@@ -552,7 +552,7 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::mergeAndRemove(
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::truncate() {
-    //*this = BPlusTree(this->filePath, OpenMode::CREATE_NEW);// TODO: test this;
+    //*this = BPlusTree(this->filePath, OpenMode::CREATE_NEW);// TODO: Test this;
 }
 
 
