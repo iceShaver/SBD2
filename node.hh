@@ -106,6 +106,7 @@ Node<TKey, TValue>::load(std::vector<char> const &bytes) {
     this->deserialize(bytes);
     this->loaded = true;
     this->changed = false;
+    return *this;
 }
 
 
@@ -115,7 +116,7 @@ template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>:
         throw std::runtime_error("loading node error");
     this->fileHandle.seekg(this->fileOffset);
     auto size = this->bytesSize();
-    auto buffer = std::vector<uint8_t>();
+    auto buffer = std::vector<char>();
     buffer.resize(this->bytesSize());
     char header;
     if (!this->fileHandle.good() || this->fileHandle.bad())

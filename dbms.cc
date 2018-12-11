@@ -25,7 +25,7 @@ int Dbms::main(int argc, char **argv) {
 
 
 void Dbms::test() const {
-    BPlusTree<int64_t, Record, 1, 1> t("test.bin", OpenMode::CREATE_NEW);
+    BPlusTree<int64_t, Record, 1, 2> t("test.bin", OpenMode::CREATE_NEW);
     /*for (int i = 0; i < 1000; ++i) {
         t.createRecord(UniqueGenerator<2000, 3000>::GetRandom(), Record::Random());
     }*/
@@ -73,7 +73,6 @@ void Dbms::test() const {
     std::cout << "Add: " << 1000 << '\n';
     t.createRecord(1000, Record{21, 58, 69});
     t.print();
-    t.draw();
     std::cout << '\n';
     std::cout << "Add: " << -1000 << '\n';
     t.createRecord(-1000, Record{21, 58, 69});
