@@ -8,8 +8,10 @@
 #include <iostream>
 #include <functional>
 #include <cxxabi.h>
+#include <random>
 
 namespace Tools {
+    namespace fs = std::filesystem;
     struct Config {
         inline static bool verboseMode = false;
         inline static int debugLevel = 0;
@@ -31,5 +33,14 @@ namespace Tools {
                                                   std::free);
         return t ? t.get() : typeid(T).name();
     }
+
+    template<typename T>
+    T random(T min, T max){
+        std::random_device rd{};
+        auto gen = std::mt19937_64{rd()};
+        std::uniform_int_distribution<T> uid{min, max};
+        return uid(gen);
+    }
+
 }
 #endif //SBD2_TOOLS_HH

@@ -26,7 +26,7 @@ int Dbms::Main(int argc, char **argv) {
 void Dbms::Test(std::string const &params) {
     BPlusTree<int64_t, Record, 1, 1> t("Test.bin", OpenMode::CREATE_NEW);
     /*for (int i = 0; i < 1000; ++i) {
-        t.createRecord(UniqueGenerator<2000, 3000>::GetRandom(), Record::Random());
+        t.createRecord(UniqueGenerator<2000, 3000>::getRandom(), Record::Random());
     }*/
     // @formatter:off
     std::cout<<"Add: "<<20<<'\n';t.createRecord(20,Record{25,58,69});t.print();std::cout<<'\n';
@@ -82,7 +82,9 @@ void Dbms::InitCommands() {
             {"update",         {UpdateRecord,       "Update record"}},
             {"delete",         {DeleteRecord,       "Delete record"}},
             {"printrecords",   {PrintRecords,       "Print all records in order by key value"}},
-            {"stats",          {PrintStatistics,    "Print DB statistics"}}
+            {"stats",          {PrintStatistics,    "Print DB statistics"}},
+            {"testfile",       {LoadTestFile,       "Load test file"}},
+            {"gentestfile",    {GenTestFile,        "Generate random test file with specified size (if not size is random"}}
     };
     // @formatter:on
 }
@@ -192,16 +194,9 @@ void Dbms::CreateDbFile(std::string const &params) {
         std::cout << "You have to close current db before creating new\n";
         return;
     }
-    if (fs::exists(params)) {
-        std::cout << "Given file exists: " << params << "\nOverwrite? [Y/N]\n";
-        std::string result;
-        while (true) {
-            std::getline(std::cin, result);
-            if (result == "Y" || result == "y") break;
-            if (result == "N" || result == "n") return;
-        }
-        fs::remove(params);
-    }
+    if (!ConfirmOverridingExistingFile(params))
+        return;
+
     try {
         tree = std::make_unique<BTreeType>(params, OpenMode::CREATE_NEW);
     } catch (std::runtime_error const &e) {
@@ -369,6 +364,64 @@ void Dbms::PrintStatistics(std::string const &params) {
 }
 
 
+void Dbms::LoadTestFile(std::string const &params) {
+    if (params.empty()) {
+        std::cout << "Missing parameters: filename\n";
+        return;
+    }
+
+    auto filePath = fs::path(params);
+    auto fileHandle = std::ifstream(filePath, std::ios::in);
+    if (fileHandle.bad()) {
+        std::cout << "Unable to open file: " << fs::absolute(filePath) << '\n';
+        return;
+    }
+    auto line = std::string();
+    while (!std::getline(fileHandle, line).eof()) {
+        ProcessInputLine(line);
+    }
+}
+
+
+void Dbms::GenTestFile(std::string const &params) {
+    if (params.empty()) {
+        std::cout << "Missing parameters: filename size\n";
+        return;
+    }
+    std::vector<std::string> tokens;
+    boost::split(tokens, params, boost::is_any_of(" "));
+    uint64_t size = Tools::random(0ull, 10000ull);
+    fs::path filePath;
+    try {
+        filePath = tokens[0];
+        if (tokens.size() == 2)
+            size = std::stoull(tokens[1]);
+    } catch (std::invalid_argument const &e) {
+        std::cout << "Bad size argument: " << tokens[1] << '\n';
+        return;
+    } catch (std::out_of_range const &e) {
+        std::cout << "Invalid arguments, should be [filename] [size]\n";
+        return;
+    }
+    if (!ConfirmOverridingExistingFile(filePath))
+        return;
+    auto fileHandle = std::ofstream(filePath, std::ios::trunc | std::ios::out);
+    if (fileHandle.bad()) {
+        std::cout << "Unable to open file: " << fs::absolute(filePath) << '\n';
+        return;
+    }
+    auto uniqueGenerator = UniqueGenerator(uint64_t(0), 10 * size);
+    auto ops = {"create", "update", "delete"};
+    for (int i = 0; i < size; ++i) {
+        auto randomRecord = Record::Random();
+        fileHandle << "create " << uniqueGenerator.getRandom() << ' '
+                   << +randomRecord.get_grade(1) << ' '
+                   << +randomRecord.get_grade(2) << ' '
+                   << +randomRecord.get_grade(3) << '\n';
+    }
+}
+
+
 void Dbms::PrintTree(std::string const &params) {
     if (!tree) {
         std::cout << "No loaded database\n";
@@ -385,7 +438,6 @@ void Dbms::DrawTree(std::string const &params) {
         return;
     }
     Dbms::tree->draw();
-
 }
 
 
@@ -394,7 +446,23 @@ void Dbms::TruncateTree(std::string const &params) {
         std::cout << "No loaded database\n";
         return;
     }
+    tree = std::make_unique<BTreeType>(tree->filePath, OpenMode::CREATE_NEW);
 }
+
+bool Dbms::ConfirmOverridingExistingFile(fs::path const &path) {
+    if (fs::exists(path)) {
+        std::cout << "Given file exists: " << path << "\nOverwrite? [Y/N]\n";
+        std::string result;
+        while (true) {
+            std::getline(std::cin, result);
+            if (result == "Y" || result == "y") break;
+            if (result == "N" || result == "n") return false;
+        }
+        fs::remove(path);
+    }
+    return true;
+}
+
 
 
 

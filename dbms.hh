@@ -44,6 +44,8 @@ private:
     inline static void TruncateTree(std::string const &params = {});
     inline static void PrintRecords(std::string const &params = {});
     inline static void PrintStatistics(std::string const &params = {});
+    inline static void LoadTestFile(std::string const &params);
+    inline static void GenTestFile(std::string const &params);
     // CRUD operations
     inline static void CreateRecord(std::string const &params);
     inline static void ReadRecord(std::string const &params);
@@ -51,6 +53,9 @@ private:
     inline static void DeleteRecord(std::string const &params);
 
 
+    // other tools function
+    inline static bool ConfirmOverridingExistingFile(fs::path const &path);
+    // data
     inline static std::map<std::string,
             std::tuple<std::function<void(std::string const &params)>, std::string>> commands;
     inline static std::unique_ptr<BTreeType> tree;

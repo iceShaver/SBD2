@@ -8,21 +8,24 @@
 #include <set>
 #include <random>
 
-template <int64_t TMin, int64_t TMax>
+template <typename T>
 class UniqueGenerator final{
     using NumberType = int64_t;
 public:
-    static NumberType GetRandom();
+    UniqueGenerator(T min, T max) : uid{min, max}, min(min), max(max){}
+    T getRandom();
 private:
-    inline static std::set<NumberType> drawedNumbers;
-    inline static std::random_device rd{};
-    inline static std::mt19937_64 gen = std::mt19937_64{rd()};
-    inline static std::uniform_int_distribution<NumberType> uid{TMin, TMax};
+    std::set<NumberType> drawedNumbers;
+    std::random_device rd{};
+    std::mt19937_64 gen = std::mt19937_64{rd()};
+    std::uniform_int_distribution<T> uid;
+    T min, max;
 };
 
-template<int64_t TMin, int64_t TMax>
-typename UniqueGenerator<TMin, TMax>::NumberType UniqueGenerator<TMin, TMax>::GetRandom() {
-    if(TMax - TMin == drawedNumbers.size() - 1)
+
+template<typename T>
+T UniqueGenerator<T>::getRandom() {
+    if(max - min == drawedNumbers.size() - 1)// TODO: fix overflow
         throw std::runtime_error("Generator is out of unique Random numbers");
     while(true) {
         auto drawedNumber = uid(gen);
@@ -32,6 +35,5 @@ typename UniqueGenerator<TMin, TMax>::NumberType UniqueGenerator<TMin, TMax>::Ge
         }
     }
 }
-
 
 #endif //SBD2_UNIQUE_GENERATOR_HH
