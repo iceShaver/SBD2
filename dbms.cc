@@ -131,13 +131,14 @@ void Dbms::CommandLineLoop() {
         add_history(lineStr.c_str());
         ProcessInputLine(lineStr);
     }
+    std::cout << '\n';
 }
 
 
 void Dbms::ProcessInputLine(std::string const &line) {
     auto cmd = line.substr(0, line.find(' '));
-    auto lastWhitechar = line.rfind(' ');
-    auto params = lastWhitechar == std::string::npos ? "" : line.substr(lastWhitechar + 1);
+    auto firstWhitechar = line.find(' ');
+    auto params = firstWhitechar == std::string::npos ? "" : line.substr(firstWhitechar + 1);
     auto foundIter = commands.find(cmd);
     if (foundIter == commands.end()) {
         std::cout << cmd << ": command not found\n";
@@ -196,8 +197,8 @@ void Dbms::CreateDbFile(std::string const &params) {
         std::string result;
         while (true) {
             std::getline(std::cin, result);
-            if (result == "Y") break;
-            if (result == "N") return;
+            if (result == "Y" || result == "y") break;
+            if (result == "N" || result == "n") return;
         }
         fs::remove(params);
     }
@@ -366,14 +367,33 @@ void Dbms::PrintStatistics(std::string const &params) {
 
 
 }
+
+
 void Dbms::PrintTree(std::string const &params) {
-
+    if (!tree) {
+        std::cout << "No loaded database\n";
+        return;
+    }
+    Dbms::tree->print();
+    std::cout << '\n';
 }
+
+
 void Dbms::DrawTree(std::string const &params) {
+    if (!tree) {
+        std::cout << "No loaded database\n";
+        return;
+    }
+    Dbms::tree->draw();
 
 }
-void Dbms::TruncateTree(std::string const &params) {
 
+
+void Dbms::TruncateTree(std::string const &params) {
+    if (!tree) {
+        std::cout << "No loaded database\n";
+        return;
+    }
 }
 
 

@@ -377,6 +377,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::updateConfigHeader()
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::print() {
+    this->root->unload();
     this->printNodeAndDescendants(this->root);
     return *this;
 }
@@ -486,6 +487,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperDescendant
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::draw() {
+    this->root->unload();
+    // TODO: remove tmp file
     GVC_t *gvc;
     Agraph_t *g;
     gvc = gvContext();
