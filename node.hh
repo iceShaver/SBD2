@@ -12,6 +12,7 @@
 #include "dbms.hh"
 #include "tools.hh"
 
+class File;
 
 template<typename TKey, typename TValue> class Node;
 
@@ -29,7 +30,7 @@ template<typename TKey, typename TValue>
 class Node {
 public:
     Node() = delete;
-    Node(size_t fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent = nullptr);
+    Node(size_t fileOffset, File &file, std::shared_ptr<Node> parent = nullptr);
     virtual ~Node();
 
     friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
@@ -41,7 +42,6 @@ public:
     virtual std::ostream &print(std::ostream &o) const = 0;
     virtual std::stringstream &print(std::stringstream &ss) const = 0;
     virtual bool contains(TKey const &key) const = 0;
-    Node &load();
     Node &load(std::vector<char> const &bytes);
     Node &unload();
     Node &markEmpty();
@@ -49,32 +49,53 @@ public:
     virtual bool full() const = 0;
     std::shared_ptr<Node> parent;
     size_t fileOffset{};
-
+    static uint64_t GetCurrentNodesCount() { return currentNodesCount; }
+    static uint64_t GetMaxNodesCount() { return maxNodesCount; }
+    static void ResetCounters();
 protected:
     virtual size_t elementsSize() const = 0;
     virtual size_t fillElementsSize() const = 0;
     virtual size_t bytesSize() const = 0;
     virtual std::vector<uint8_t> getData() = 0;
-    std::vector<uint8_t> serialize();
+    std::vector<char> serialize();
     virtual Node &deserialize(std::vector<char> const &bytes) = 0;
     void remove();
-    std::fstream &fileHandle;
+    File &file;
     bool empty;
     bool changed;
     bool loaded;
+    void incCounter();
+    void decCounter();
+    inline static uint64_t currentNodesCount = 0;
+    inline static uint64_t maxNodesCount = 0;
 };
 
 
 template<typename TKey, typename TValue>
-Node<TKey, TValue>::Node(size_t const fileOffset, std::fstream &fileHandle, std::shared_ptr<Node> parent)
-        : fileHandle(fileHandle), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(false),
+Node<TKey, TValue>::Node(size_t const fileOffset, File &file, std::shared_ptr<Node> parent)
+        : file(file), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(false),
           loaded(false) {
     Tools::debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; }, 2);
+    incCounter();
+}
+
+
+template<typename TKey, typename TValue>
+void Node<TKey, TValue>::incCounter() {
+    currentNodesCount++;
+    if (currentNodesCount > maxNodesCount) maxNodesCount = currentNodesCount;
+}
+
+
+template<typename TKey, typename TValue>
+void Node<TKey, TValue>::decCounter() {
+    currentNodesCount--;
 }
 
 
 template<typename TKey, typename TValue> Node<TKey, TValue>::~Node() {
     Tools::debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; }, 2);
+    decCounter();
 }
 
 
@@ -86,15 +107,15 @@ template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
 }
 
 
-template<typename TKey, typename TValue> std::vector<uint8_t> Node<TKey, TValue>::serialize() {
-    auto result = std::vector<uint8_t>{};
+template<typename TKey, typename TValue> std::vector<char> Node<TKey, TValue>::serialize() {
+    auto result = std::vector<char>{};
     result.reserve(this->bytesSize() + 1);
     std::bitset<8> headerByte = 0;
     headerByte[0] = this->empty;
     headerByte[1] = static_cast<bool>(this->nodeType());
-    result[0] = static_cast<uint8_t>(headerByte.to_ulong());
+    result.emplace_back(static_cast<uint8_t>(headerByte.to_ulong()));
     auto data = this->getData();
-    std::copy(data.begin(), data.end(), result.begin() + 1);
+    std::copy(data.begin(), data.end(), std::back_inserter(result));
     return result;
 }
 
@@ -110,29 +131,6 @@ Node<TKey, TValue>::load(std::vector<char> const &bytes) {
 }
 
 
-template<typename TKey, typename TValue> Node<TKey, TValue> &Node<TKey, TValue>::load() {
-    Tools::debug([this] { std::clog << "Loading node at: " << this->fileOffset << '\n'; }, 3);
-    if (!this->fileHandle.good())
-        throw std::runtime_error("loading node error");
-    this->fileHandle.seekg(this->fileOffset);
-    auto size = this->bytesSize();
-    auto buffer = std::vector<char>();
-    buffer.resize(this->bytesSize());
-    char header;
-    if (!this->fileHandle.good() || this->fileHandle.bad())
-        throw std::runtime_error("loading node error");
-    this->fileHandle.read(&header, 1);
-    this->fileHandle.read(reinterpret_cast<char *>(buffer.data()), this->bytesSize());
-    if (this->fileHandle.bad())
-        throw std::runtime_error("loading node error");
-    if (this->fileHandle.eof())this->fileHandle.clear();
-    this->deserialize(buffer);
-    this->changed = false;
-    this->loaded = true;
-    return *this;
-}
-
-
 template<typename TKey, typename TValue>
 Node<TKey, TValue> &
 Node<TKey, TValue>::unload() {
@@ -141,11 +139,12 @@ Node<TKey, TValue>::unload() {
         return *this;
     }
     Tools::debug([this] { std::clog << "Unloading node at: " << this->fileOffset << '\n'; }, 3);
-    this->fileHandle.seekp(this->fileOffset);
     auto bytes = this->serialize();
-    fileHandle.clear();
-    this->fileHandle.write(reinterpret_cast<char *>(bytes.data()), this->bytesSize());
-    if (!this->fileHandle.good())Tools::debug([] { std::clog << "Error while writing node\n"; });
+    if (bytes.size() != this->bytesSize() + 1) {
+        throw std::runtime_error("Sizes do not match");
+    }
+    this->file.write(this->fileOffset, bytes);
+    if (!this->file.good())Tools::debug([] { std::clog << "Error while writing node\n"; });
     this->changed = false;
     this->loaded = true;
     return *this;
@@ -175,6 +174,13 @@ template<typename TKey, typename TValue>
 Node<TKey, TValue> &Node<TKey, TValue>::markChanged() {
     this->changed = true;
     return *this;
+}
+
+
+template<typename TKey, typename TValue>
+void Node<TKey, TValue>::ResetCounters() {
+    maxNodesCount = currentNodesCount = 0;
+
 }
 
 

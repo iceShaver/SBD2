@@ -16,7 +16,7 @@ class InnerNode final : public Node<TKey, TValue> {
     using KeysCollection = std::array<std::optional<TKey>, 2 * TDegree>;
 
 public:
-    InnerNode(size_t fileOffset, std::fstream &fileHandle, std::shared_ptr<Base> const &parent = nullptr);
+    InnerNode(size_t fileOffset, File &file, std::shared_ptr<Base> const &parent = nullptr);
     ~InnerNode() override;
 
     static size_t BytesSize();
@@ -121,9 +121,9 @@ InnerNode<TKey, TValue, TDegree>::bytesSize() const {
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, std::fstream &fileHandle,
+InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, File &file,
                                             std::shared_ptr<InnerNode::Base> const &parent) : Base(fileOffset,
-                                                                                                   fileHandle,
+                                                                                                   file,
                                                                                                    parent) {}
 
 

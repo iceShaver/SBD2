@@ -4,13 +4,13 @@
 
 #include "dbms.hh"
 #include "b_plus_tree.hh"
+#include "unique_generator.hh"
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <boost/algorithm/string.hpp>
 #include <iomanip>
 #include <functional>
 #include <cstring>
-#include "unique_generator.hh"
 
 
 int Dbms::Main(int argc, char **argv) {
@@ -176,7 +176,6 @@ void Dbms::LoadDbFile(std::string const &params) {
     }
 
 
-
     try {
         tree = std::make_unique<BTreeType>(params, OpenMode::USE_EXISTING);
     } catch (std::runtime_error const &e) {
@@ -225,7 +224,8 @@ void Dbms::PrintDbFile(std::string const &params) {
         std::cout << "No loaded database\n";
         return;
     }
-    std::cout << "Printing db file here!\n";
+    std::cout << "Printing db file:\n";
+    tree->printFile();
 }
 
 
@@ -338,7 +338,6 @@ void Dbms::PrintRecords(std::string const &params) {
         std::cout << "No loaded database\n";
         return;
     }
-
 }
 void Dbms::PrintStatistics(std::string const &params) {
     if (!tree) {
@@ -352,6 +351,8 @@ void Dbms::PrintStatistics(std::string const &params) {
     cout << std::setw(40) << std::left << "Underlying data type: " << tree->name() << '\n';
     cout << std::setw(40) << std::left << "Inner node degree: " << tree->innerNodeDegree() << '\n';
     cout << std::setw(40) << std::left << "Leaf node degree: " << tree->leafNodeDegree() << '\n';
+    cout << std::setw(40) << std::left << "Max nodes in RAM simultaneously: " << BTreeType::ANode::GetMaxNodesCount() << '\n';
+    cout << std::setw(40) << std::left << "Current nodes in RAM: " << BTreeType::ANode::GetCurrentNodesCount() << '\n';
     /*cout << std::setw(40) << std::left << "Records number: " << this->tree->recordsNumber() << '\n';
     cout << std::setw(40) << std::left << "Nodes number: " << this->tree->nodesNumber() << '\n';
     cout << std::setw(40) << std::left << "Disk reads count (current session): " << this->tree->diskReadsCount() << '\n';
@@ -456,7 +457,7 @@ void Dbms::TruncateTree(std::string const &params) {
 
 bool Dbms::ConfirmOverridingExistingFile(fs::path const &path) {
     if (fs::exists(path)) {
-        std::cout << "Given file exists: " << path << "\nOverwrite? [Y/N]\n";
+        std::cout << "Given file exists: " << fs::absolute(path) << "\nOverwrite? [Y/N]: ";
         std::string result;
         while (true) {
             std::getline(std::cin, result);

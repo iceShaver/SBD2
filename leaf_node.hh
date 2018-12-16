@@ -16,7 +16,7 @@ class LeafNode final : public Node<TKey, TValue> {
     using ValuesCollection =  std::array<std::optional<TValue>, 2 * TDegree>;
 
 public:
-    LeafNode(size_t fileOffset, std::fstream &fileHandle, std::shared_ptr<Base> parent = nullptr);
+    LeafNode(size_t fileOffset, File &file, std::shared_ptr<Base> parent = nullptr);
     ~LeafNode() override;
 
     KeysCollection keys;
@@ -50,8 +50,8 @@ private:
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-LeafNode<TKey, TValue, TDegree>::LeafNode(size_t fileOffset, std::fstream &fileHandle,
-                                          std::shared_ptr<Base> parent) : Base(fileOffset, fileHandle, parent) {}
+LeafNode<TKey, TValue, TDegree>::LeafNode(size_t fileOffset, File &file,
+                                          std::shared_ptr<Base> parent) : Base(fileOffset, file, parent) {}
 
 
 template<typename TKey, typename TValue, size_t TDegree>
@@ -111,7 +111,7 @@ LeafNode<TKey, TValue, TDegree>::print(std::ostream &o) const {
 template<typename TKey, typename TValue, size_t TDegree>
 size_t
 LeafNode<TKey, TValue, TDegree>::bytesSize() const {
-    return sizeof(this->keys) + sizeof(this->values);
+    return BytesSize();
 }
 
 
