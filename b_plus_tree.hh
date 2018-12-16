@@ -100,7 +100,7 @@ public:
     auto getCurrentOperationDiskWritesCount() const { return currentOperationDiskWritesCount; }
 
     Iterator const begin();
-    Iterator const end();
+    Iterator const end() { return Iterator(); }
 private:
     void beginOperation();
     void incrementWriteOperationsCounters();
@@ -134,16 +134,68 @@ class BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator {
 public:
     Iterator &operator++();     // ++x;
     Iterator const operator++(int); // x++
+    value_type operator*();
+    bool operator==(Iterator const &other) const;
+    bool operator!=(Iterator const &other) const { return !(*this == other); }
 private:
-    bool end = false;
+    Iterator(std::shared_ptr<ALeafNode> node,
+             BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> *tree) : end(false),
+                                                                                 node(std::move(node)),
+                                                                                 i(0),
+                                                                                 tree(std::move(
+                                                                                         tree)) {}
+    Iterator() : end(true), node(nullptr), i(0), tree(nullptr) {}
+
+    bool end;
+    std::shared_ptr<ALeafNode> node;
+    size_t i;
+    BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> *tree;
 };
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator++() {
+    // next record is in the same node
+    if (i < this->node->keys.size() - 1 && this->node->keys[i + 1] != std::nullopt) {
+        i++;
+        return *this;
+    }
 
-    return *this;
+    // if no parent then end iterator
+    if (node->parent == nullptr) {
+        end = true;
+        return *this;
+    }
+    std::shared_ptr<ANode> tmpNodePtr;
+    tmpNodePtr = this->node;
+
+
+    // go up and search first right neighbour, if so get most left node
+    while (true) {
+        if (tmpNodePtr->parent == nullptr) {
+            end = true;
+            return *this;
+        }
+
+        auto parent = std::dynamic_pointer_cast<AInnerNode>(tmpNodePtr->parent);
+        auto nextDescendantOffset = parent->getNextDescendantOffset(tmpNodePtr->fileOffset);
+        if (nextDescendantOffset) {
+            node = nullptr; // unload old node to release memory
+            auto nextNode = tree->readNode(*nextDescendantOffset);
+            nextNode->parent = parent;
+            while (nextNode->nodeType() != NodeType::LEAF) {
+                auto innerNode = std::dynamic_pointer_cast<AInnerNode>(nextNode);
+                nextNode = tree->readNode(*innerNode->descendants[0]);
+                nextNode->parent = innerNode;
+            }
+            node = std::dynamic_pointer_cast<ALeafNode>(nextNode);
+            i = 0;
+            return *this;
+        }
+        tmpNodePtr = parent;
+    }
+
 }
 
 
@@ -153,6 +205,33 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator++
     auto const tmp = *this;
     this->operator++();
     return tmp;
+}
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+std::pair<TKey, TValue>
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator*() {
+    if (end)
+        throw std::out_of_range("Tree iterator out of range: end");
+    auto key = this->node->keys[i];
+    auto val = this->node->values[i];
+    if (!key || !val) {
+        throw std::runtime_error("Internal DB error: next (key, value) not found");
+    }
+    return std::pair(*key, *val);
+}
+
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+bool
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator==(
+        BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator const &other) const {
+    if (this->end && other.end) // if both end
+        return true;
+    if (this->end != other.end) // if different end
+        return false;
+    if (this->node == other.node && this->i == other.i)
+        return true;
+    return false;
+
 }
 
 
@@ -170,7 +249,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path f
                               [this] { this->incrementWriteOperationsCounters(); });
             if (this->file.bad())
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
-            this->configHeader = this->file.read<ConfigHeader>(0);
+            this->configHeader = this->file.template read<ConfigHeader>(0);
             if (configHeader.leafNodeDegree != TLeafNodeDegree
                 || configHeader.innerNodeDegree != TInnerNodeDegree) {
                 throw std::runtime_error("Degrees of nodes are incorrect for current program.\n"s +
@@ -679,6 +758,26 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printFile() {
         offset += stepSize + 1;
     }
     file.clear();
+}
+
+
+template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
+typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator const
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::begin() {
+    auto node = this->root;
+    if (node == nullptr) {
+        throw std::runtime_error("Root is nullptr");
+    }
+    while (node->nodeType() != NodeType::LEAF) {
+        auto innerNode = std::dynamic_pointer_cast<AInnerNode>(node);
+        auto offset = innerNode->descendants[0];
+        if (!offset) {
+            throw std::runtime_error("Unable to find descendant");
+        }
+        node = readNode(*offset);
+        node->parent = innerNode;
+    }
+    return Iterator(std::dynamic_pointer_cast<ALeafNode>(node), this);
 }
 
 

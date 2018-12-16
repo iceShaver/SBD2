@@ -30,6 +30,7 @@ public:
     bool full() const override;
     InnerNode &add(TKey const &key, size_t descendantOffset);
     InnerNode &setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key);
+    std::optional<size_t> getNextDescendantOffset(size_t offset) const;
     TKey getKeyBetweenPtrs(size_t aPtr, size_t bPtr);
     std::stringstream &print(std::stringstream &ss) const override;
     bool contains(TKey const &key) const override;
@@ -304,7 +305,7 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
 template<typename TKey, typename TValue, size_t TDegree>
 std::stringstream &
 InnerNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
-    ss << "node" << this->fileOffset << "[label=\"";
+    ss << "node" << this->fileOffset << "[xlabel=<" << this->fileOffset << "> label=\"";
     auto[keys, descendants] = this->getEntries();
     int i;
     for (i = 0; i < keys.size(); ++i) {
@@ -360,6 +361,23 @@ InnerNode<TKey, TValue, TDegree>::setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TK
     this->changed = true;
     keys[index] = key;
     return *this;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+std::optional<size_t> InnerNode<TKey, TValue, TDegree>::getNextDescendantOffset(size_t offset) const {
+    for (int i = 0; i < this->descendants.size(); ++i) {
+        if (this->descendants[i] == std::nullopt)
+            return std::nullopt;
+        if (this->descendants[i] == offset) {
+            if (i < this->descendants.size() - 1 && this->descendants[i + 1]) {
+                return this->descendants[i + 1];
+            }
+            return std::nullopt;
+        }
+    }
+
+
 }
 
 

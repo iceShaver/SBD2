@@ -17,7 +17,8 @@ int Dbms::Main(int argc, char **argv) {
 
     InitCommands();
     InitAutocompletion();
-    CommandLineLoop();
+    //CommandLineLoop();
+    Test();
     Exit();
     return 0;
 }
@@ -58,6 +59,68 @@ void Dbms::Test(std::string const &params) {
     std::cout<<"Add: "<<5431<<'\n';t.createRecord(5431,Record{21,58,69});t.print();std::cout<<'\n';
     t.draw();
     // @formatter:on
+    for(auto[k, v] : t){
+        std::cout << k << " " << v << '\n';
+    }
+    /*auto it = t.begin();
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+    ++it;
+    std::cout << (*it).first << " " << (*it).second << '\n';
+*/
+
+    std::cout << "success\n";
 }
 
 

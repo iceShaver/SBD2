@@ -30,7 +30,7 @@ namespace Tools {
     namespace fs = std::filesystem;
     struct Config {
         inline static bool verboseMode = false;
-        inline static int debugLevel = 0;
+        inline static int debugLevel = 3;
     };
 
     template<typename TBase, typename TDerived>
