@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
  * * removing records
  * !* iterator
  * !* cache (needed to effective iteration)
- * !* reading data from Test files (CUD operations)
+ * !* reading data from Test files (CUD operations) done
  *
  *params of db: I/O pages counter, height, nodes number, size, records number, % disk and ram memory utilization (disk util will be good for an experiment)
  * !*

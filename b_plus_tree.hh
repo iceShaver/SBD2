@@ -18,6 +18,7 @@
 #include "leaf_node.hh"
 #include "record.hh"
 #include "tools.hh"
+#include "file.hh"
 
 using namespace std::string_literals;
 namespace fs = std::filesystem;
@@ -97,11 +98,6 @@ private:
     void incrementWriteOperationsCounters();
     void incrementReadOperationsCounters();
     void resetDiskOperationsCounters();
-    template<typename TResult> TResult diskRead(size_t offset);
-    std::vector<char> diskRead(size_t offset, size_t size);
-    template<typename TData>
-    void diskWrite(size_t offset, TData const &data);
-    void diskWrite(size_t offset, std::vector<char> const &data);
 
 
     uint64_t sessionDiskReadsCount = 0;
@@ -110,7 +106,8 @@ private:
     uint64_t currentOperationDiskWritesCount = 0;
 
     fs::path filePath;
-    std::fstream fileHandle;
+    //std::fstream fileHandle;
+    File file;
     std::shared_ptr<ANode> root;
     ConfigHeader configHeader;
     BPlusTree &updateConfigHeader();
@@ -121,13 +118,13 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path filePath, OpenMode openMode)
         : filePath(std::move(filePath)), configHeader() {
     Tools::debug([] { std::clog << "L: " << ALeafNode::BytesSize() << " I: " << AInnerNode::BytesSize() << '\n'; });
-    this->fileHandle.rdbuf()->pubsetbuf(0, 0);
     switch (openMode) {
         case OpenMode::USE_EXISTING:
             if (!fs::is_regular_file(this->filePath))
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
             Tools::debug([this] { std::clog << "Opening file: " << fs::absolute(this->filePath) << '\n'; });
-            this->fileHandle.open(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::ate);
+            this->file = File(this->filePath, std::ios::binary | std::ios::out | std::ios::in | std::ios::ate,
+                              this->incrementReadOperationsCounters, this->incrementWriteOperationsCounters);
             if (this->fileHandle.bad())
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
             this->configHeader = this->diskRead<ConfigHeader>(0);
@@ -135,6 +132,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path f
                 || this->configHeader.leafNodeDegree != TLeafNodeDegree) {
                 throw std::runtime_error("File contains tree with different nodes degrees.");
             }*/
+            this->configHeader = file.read<ConfigHeader>(0);
             this->root = BPlusTree::readNode(configHeader.rootOffset);
             break;
 
@@ -173,9 +171,9 @@ template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNo
 std::shared_ptr<typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ANode>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t fileOffset) {
     char header;
-    auto readData = this->diskRead(fileOffset,
-                                   sizeof(header) + std::max(AInnerNode::BytesSize(), ALeafNode::BytesSize()));
-    fileHandle.clear(); // since we read max of both nodes, we can go eof
+    auto readData = file.read(fileOffset,
+                              sizeof(header) + std::max(AInnerNode::BytesSize(), ALeafNode::BytesSize()));
+    file.clear(); // since we read max of both nodes, we can go eof
     header = readData[0];
     readData.erase(readData.begin());
     if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node!");
@@ -591,64 +589,6 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::incrementReadOp
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::resetDiskOperationsCounters() {
     sessionDiskReadsCount = sessionDiskWritesCount = currentOperationDiskReadsCount = currentOperationDiskWritesCount = 0;
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-template<typename TResult>
-TResult BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::diskRead(size_t offset) {
-    auto size = sizeof(TResult);
-    auto result = this->diskRead(offset, size);
-    return *reinterpret_cast<TResult *>(result.data()); // TODO: possibly wrong????
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::vector<char> BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::diskRead(size_t offset, size_t size) {
-    if (this->fileHandle.bad()) {
-        throw std::runtime_error(
-                "Disk read at offset" + std::to_string(offset) + " of size " + std::to_string(size) + " failed before");
-    }
-    this->incrementReadOperationsCounters();
-    this->fileHandle.clear();
-    std::vector<char> result;
-    result.resize(size);
-    this->fileHandle.seekg(offset);
-    this->fileHandle.read(result.data(), size);
-    if (this->fileHandle.bad())
-        throw std::runtime_error(
-                "Disk read at offset" + std::to_string(offset) + " of size " + std::to_string(size) + " failed after");
-    return result;
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-template<typename TData>
-void
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::diskWrite(size_t offset, TData const &data) {
-    auto dataVector = std::vector<char>();
-    dataVector.resize(sizeof(TData));
-    *reinterpret_cast<TData *>(dataVector.data()) = data;
-    this->diskWrite(offset, dataVector);
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::diskWrite(size_t offset, std::vector<char> const &data) {
-    if (this->fileHandle.bad()) {
-        throw std::runtime_error(
-                "Disk write at offset" + std::to_string(offset) + " of size " + std::to_string(data.size()) +
-                " failed before");
-    }
-    this->incrementWriteOperationsCounters();
-    this->fileHandle.clear();
-    this->fileHandle.seekp(offset);
-    this->fileHandle.write(data.data(), data.size());
-    if (this->fileHandle.bad())
-        throw std::runtime_error(
-                "Disk write at offset" + std::to_string(offset) + " of size " + std::to_string(data.size()) +
-                " failed after");
 }
 
 
