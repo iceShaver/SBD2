@@ -124,7 +124,7 @@ void Dbms::InitAutocompletion() {
 
 void Dbms::CommandLineLoop() {
     while (true) {
-        char *line = readline("> ");
+        char *line = readline((prompt + "> ").c_str());
         if (!line) break;
         auto lineStr = std::string(line);
         free(line);
@@ -166,15 +166,16 @@ void Dbms::Exit(std::string const &params) {
 }
 
 void Dbms::LoadDbFile(std::string const &params) {
+    if (tree) {
+        std::cout << "You have to close current db before opening next\n";
+        return;
+    }
     if (params.empty()) {
         std::cout << "You have to specify file to open\n";
         return;
     }
 
-    if (tree) {
-        std::cout << "You have to close current db before opening next\n";
-        return;
-    }
+
 
     try {
         tree = std::make_unique<BTreeType>(params, OpenMode::USE_EXISTING);
@@ -182,18 +183,20 @@ void Dbms::LoadDbFile(std::string const &params) {
         std::cerr << "Error opening file: " << params << '\n' << e.what() << '\n';
         return;
     }
+    prompt = params;
 }
 
 
 void Dbms::CreateDbFile(std::string const &params) {
-    if (params.empty()) {
-        std::cout << "You have to specify file to create\n";
-        return;
-    }
     if (tree) {
         std::cout << "You have to close current db before creating new\n";
         return;
     }
+    if (params.empty()) {
+        std::cout << "You have to specify file to create\n";
+        return;
+    }
+
     if (!ConfirmOverridingExistingFile(params))
         return;
 
@@ -203,6 +206,7 @@ void Dbms::CreateDbFile(std::string const &params) {
         std::cerr << e.what() << '\n';
         return;
     }
+    prompt = params;
 }
 
 
@@ -212,6 +216,7 @@ void Dbms::CloseDbFile(std::string const &params) {
         return;
     }
     tree = nullptr;
+    prompt = "";
 }
 
 

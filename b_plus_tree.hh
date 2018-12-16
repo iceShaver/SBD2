@@ -27,11 +27,6 @@ class Dbms;
 enum class OpenMode { USE_EXISTING, CREATE_NEW };
 
 
-struct ConfigHeader {
-    uint64_t rootOffset;
-};
-
-
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 class BPlusTree;
 
@@ -42,6 +37,11 @@ std::ostream &operator<<(std::ostream &, BPlusTree<TKey, TValue, TInnerNodeDegre
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 class BPlusTree final {
+    struct ConfigHeader {
+        uint64_t rootOffset;
+/*        uint64_t innerNodeDegree = TInnerNodeDegree;
+        uint64_t leafNodeDegree = TLeafNodeDegree;*/
+    };
 
     using ANode = Node<TKey, TValue>;
     using AInnerNode = InnerNode<TKey, TValue, TInnerNodeDegree>;
@@ -131,6 +131,10 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BPlusTree(fs::path f
             if (this->fileHandle.bad())
                 throw std::runtime_error("Couldn't open file: " + fs::absolute(this->filePath).string() + '\n');
             this->configHeader = this->diskRead<ConfigHeader>(0);
+           /* if (this->configHeader.innerNodeDegree != TInnerNodeDegree
+                || this->configHeader.leafNodeDegree != TLeafNodeDegree) {
+                throw std::runtime_error("File contains tree with different nodes degrees.");
+            }*/
             this->root = BPlusTree::readNode(configHeader.rootOffset);
             break;
 

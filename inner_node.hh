@@ -106,7 +106,10 @@ InnerNode<TKey, TValue, TDegree>::print(std::ostream &o) const {
     for (i = 0; i < keys.size(); ++i) {
         o << "D:" << descendants[i] << ' ' << "K:" << keys[i] << ' ';
     }
-    return o << "D:" << descendants[i] << '}'; // TODO: changeit after the fix
+    if (i != 0)
+        o << "D:" << descendants[i];
+    o << '}'; // TODO: changeit after the fix
+    return o;
 }
 
 

@@ -59,6 +59,7 @@ private:
     inline static std::map<std::string,
             std::tuple<std::function<void(std::string const &params)>, std::string>> commands;
     inline static std::unique_ptr<BTreeType> tree;
+    inline static std::string prompt = "";
 
 };
 
