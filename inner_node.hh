@@ -34,14 +34,14 @@ public:
     TKey getKeyBetweenPtrs(size_t aPtr, size_t bPtr);
     std::stringstream &print(std::stringstream &ss) const override;
     bool contains(TKey const &key) const override;
+    size_t fillElementsSize() const override;
 
 
-    DescendantsCollection descendants;
-    KeysCollection keys;
+    DescendantsCollection descendants{};
+    KeysCollection keys{};
 
 private:
     size_t getKeyIndexBetweenPtrs(size_t aPtr, size_t bPtr);
-    size_t fillElementsSize() const override;
     std::ostream &print(std::ostream &o) const override;
     Node<TKey, TValue> &deserialize(std::vector<char> const &bytes) override;
     std::vector<uint8_t> getData() override;
@@ -305,13 +305,13 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
 template<typename TKey, typename TValue, size_t TDegree>
 std::stringstream &
 InnerNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
-    ss << "node" << this->fileOffset << "[xlabel=<" << this->fileOffset << "> label=\"";
+    ss << "node" << this->fileOffset << "[xlabel=<<font color='#aaffaa'>" << this->fileOffset << "</font>> label=\"";
     auto[keys, descendants] = this->getEntries();
     int i;
     for (i = 0; i < keys.size(); ++i) {
-        ss << "<f" << i << ">" << /*descendants[i]*/"*" << "|" << keys[i] << '|';
+        ss << "<f" << i << ">" << /*descendants[i]*/"" << "|" << keys[i] << '|';
     }
-    ss << "<f" << i << '>' << /*descendants[i]*/"*" << "\"];\n"; // TODO: changeit after the fix
+    ss << "<f" << i << '>' << /*descendants[i]*/"" << "\"];\n";
     for (int i = 0; i < descendants.size(); ++i) {
         ss << "\"node" << this->fileOffset << "\":" << 'f' << i << " -> \"node" << descendants[i] << "\"\n";
     }

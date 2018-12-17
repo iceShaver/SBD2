@@ -17,8 +17,7 @@ int Dbms::Main(int argc, char **argv) {
 
     InitCommands();
     InitAutocompletion();
-    //CommandLineLoop();
-    Test();
+    CommandLineLoop();
     Exit();
     return 0;
 }
@@ -59,7 +58,7 @@ void Dbms::Test(std::string const &params) {
     std::cout<<"Add: "<<5431<<'\n';t.createRecord(5431,Record{21,58,69});t.print();std::cout<<'\n';
     t.draw();
     // @formatter:on
-    for(auto[k, v] : t){
+    for (auto[k, v] : t) {
         std::cout << k << " " << v << '\n';
     }
     /*auto it = t.begin();
@@ -130,24 +129,32 @@ void Dbms::InitCommands() {
             // dbms operations
             {"help",           {PrintHelp,          "Prints this help"}},
             {"exit",           {Exit,               "Close DB file and Exit program"}},
+
             {"open",           {LoadDbFile,         "Open specified db file"}},
             {"new",            {CreateDbFile,       "Create new db file at specified location"}},
             {"close",          {CloseDbFile,        "Save and close db file"}},
-            {"printdbfile",    {PrintDbFile,        "Print content of db file in human readable form to stdout"}},
-            {"test",           {Test,               "Test program"}},
-            // tree operations
-            {"printtree",      {PrintTree,          "Print all nodes of tree to stdout"}},
+
+            {"file",           {PrintDbFile,        "Print content of db file in human readable form to stdout"}},
+            {"nodes",          {PrintTree,          "Print all nodes of tree to stdout"}},
             {"draw",           {DrawTree,           "Draw and display tree as svg picture"}},
+            {"ls",             {PrintRecords,       "Print all records in order by key value"}},
+
+            {"test",           {Test,               "Test program"}},
+            {"load",           {LoadTestFile,           "Load test file"}},
+            {"gentestfile",    {GenTestFile,        "Generate random test file with specified size (if not size is random"}},
+            // tree operations
+
+
             {"truncatetree",   {TruncateTree,       "Remove all records, clean db file"}},
             // records operations
             {"create",         {CreateRecord,       "Create new record"}},
             {"read",           {ReadRecord,         "Read record"}},
             {"update",         {UpdateRecord,       "Update record"}},
             {"delete",         {DeleteRecord,       "Delete record"}},
-            {"printrecords",   {PrintRecords,       "Print all records in order by key value"}},
+
+
             {"stats",          {PrintStatistics,    "Print DB statistics"}},
-            {"testfile",       {LoadTestFile,       "Load test file"}},
-            {"gentestfile",    {GenTestFile,        "Generate random test file with specified size (if not size is random"}}
+            {"lastop",         {LastOpStats,    "Last operation statistics"}}
     };
     // @formatter:on
 }
@@ -187,7 +194,8 @@ void Dbms::InitAutocompletion() {
 
 void Dbms::CommandLineLoop() {
     while (true) {
-        char *line = readline((prompt + "> ").c_str());
+        char *line = readline((Tools::Terminal::getColorString(Tools::Terminal::Color::FG_GREEN) + prompt + "> " +
+                               Tools::Terminal::getColorString(Tools::Terminal::Color::FG_DEFAULT)).c_str());
         if (!line) break;
         auto lineStr = std::string(line);
         free(line);
@@ -224,6 +232,7 @@ void Dbms::PrintHelp(std::string const &params) {
 
 
 void Dbms::Exit(std::string const &params) {
+    std::cout << "Exiting...\n";
     tree = nullptr;
     ::exit(0);
 }
@@ -274,7 +283,7 @@ void Dbms::CreateDbFile(std::string const &params) {
 
 void Dbms::CloseDbFile(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     tree = nullptr;
@@ -284,7 +293,7 @@ void Dbms::CloseDbFile(std::string const &params) {
 
 void Dbms::PrintDbFile(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     std::cout << "Printing db file:\n";
@@ -294,13 +303,14 @@ void Dbms::PrintDbFile(std::string const &params) {
 
 void Dbms::CreateRecord(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     if (params.empty()) {
         std::cout << "You have to specify records data: key grade1 grade2 grade3\n";
         return;
     }
+    tree->resetOpCounters();
     try {
         auto keyToken = params.substr(0, params.find(' '));
         auto recordToken = params.substr(params.find(' ') + 1);
@@ -325,14 +335,14 @@ void Dbms::CreateRecord(std::string const &params) {
 
 void Dbms::ReadRecord(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     if (params.empty()) {
         std::cout << "You have to specify key to read record\n";
         return;
     }
-
+    tree->resetOpCounters();
     try {
         auto key = std::stoll(params);
         auto record = tree->readRecord(key);
@@ -355,13 +365,14 @@ void Dbms::ReadRecord(std::string const &params) {
 
 void Dbms::UpdateRecord(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     if (params.empty()) {
         std::cout << "You have to specify records data: key grade1 grade2 grade3\n";
         return;
     }
+    tree->resetOpCounters();
     try {
         auto keyToken = params.substr(0, params.find(' '));
         auto recordToken = params.substr(params.find(' ') + 1);
@@ -386,9 +397,10 @@ void Dbms::UpdateRecord(std::string const &params) {
 
 void Dbms::DeleteRecord(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
+    tree->resetOpCounters();
     if (params.empty()) {
         std::cout << "You have to specify key to delete record\n";
         return;
@@ -398,47 +410,61 @@ void Dbms::DeleteRecord(std::string const &params) {
 
 void Dbms::PrintRecords(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
+    tree->resetOpCounters();
+    std::cout << "Key:\tValue:\n";
+    int count = 0;
+    for (auto[k, v] : *tree) {
+        std::cout << k << '\t' << v << '\n';
+        ++count;
+    }
+    std::cout << "Total count: " << count << " records\n";
 }
+
+
 void Dbms::PrintStatistics(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     using std::cout;
-    cout << "Info & Statistics:\n";
+    tree->disableCounters();
     cout << std::setw(40) << std::left << "DB file: " << fs::absolute(tree->filePath) << '\n';
     cout << std::setw(40) << std::left << "DB file size: " << fs::file_size(tree->filePath) << " bytes\n";
     cout << std::setw(40) << std::left << "Underlying data type: " << tree->name() << '\n';
-    cout << std::setw(40) << std::left << "Inner node degree: " << tree->innerNodeDegree() << '\n';
-    cout << std::setw(40) << std::left << "Leaf node degree: " << tree->leafNodeDegree() << '\n';
-    cout << std::setw(40) << std::left << "Max nodes in RAM simultaneously: " << BTreeType::ANode::GetMaxNodesCount() << '\n';
-    cout << std::setw(40) << std::left << "Current nodes in RAM: " << BTreeType::ANode::GetCurrentNodesCount() << '\n';
-    /*cout << std::setw(40) << std::left << "Records number: " << this->tree->recordsNumber() << '\n';
-    cout << std::setw(40) << std::left << "Nodes number: " << this->tree->nodesNumber() << '\n';
-    cout << std::setw(40) << std::left << "Disk reads count (current session): " << this->tree->diskReadsCount() << '\n';
-    cout << std::setw(40) << std::left << "Disk writes count (current session): " << this->tree->diskWritesCount() << '\n';
-    cout << std::setw(40) << std::left << "Disk reads count (last operation): " << this->tree->lastOpDiskReadsCount() << '\n';
-    cout << std::setw(40) << std::left << "Disk writes count (last operation): " << this->tree->lastOpDiskWritesCount() << '\n';
-    cout << std::setw(40) << std::left << "Disk total I/O: "
-         << this->tree->diskWritesCount() + this->tree->diskReadCount() << '\n';
-    cout << std::setw(40) << std::left << "Disk Memory utilization: " << this->diskMemoryUtilization() << " %\n";
-    cout << std::setw(40) << std::left << "RAM usage: " << this->ramUsage() << " %\n";*/
+    cout << std::setw(40) << std::left << "Node degree:" << "Inner: " << tree->innerNodeDegree() << " Leaf: "
+         << tree->leafNodeDegree() << '\n';
+    cout << std::setw(40) << std::left << "Tree height: " << tree->getHeight() << '\n';
+    cout << std::setw(40) << std::left << "Nodes in RAM: " << "Max: "
+         << BTreeType::ANode::GetMaxNodesCount() << " Current: " << BTreeType::ANode::GetCurrentNodesCount() << "\n";
+    cout << std::setw(40) << std::left << "Records number: " << tree->getRecordsNumber() << '\n';
+    auto[innerNodesCount, leafNodesCount] = tree->getNodesCount();
+    cout << std::setw(40) << std::left << "Nodes number: " << "Inner: " << innerNodesCount << " Leaf: "
+         << leafNodesCount
+         << " Sum: " << innerNodesCount + leafNodesCount << '\n';
 
-
-
-
+    cout << std::setw(40) << std::left << "Disk IO (session): " << "R: " << tree->getSessionDiskReadsCout() << " W: "
+         << tree->getSessionDiskWritesCount() << " Sum: "
+         << tree->getSessionDiskReadsCout() + tree->getSessionDiskWritesCount() << '\n';
+    cout << std::setw(40) << std::left << "Disk Memory utilization: " << tree->getDiskUtilizationPercent() << " %\n";
+    //cout << std::setw(40) << std::left << "RAM usage: " << this->ramUsage() << " %\n";
+    tree->enableCounters();
 }
 
 
 void Dbms::LoadTestFile(std::string const &params) {
+    if (!tree) {
+        std::cout << "No opened database\n";
+        return;
+    }
+
     if (params.empty()) {
         std::cout << "Missing parameters: filename\n";
         return;
     }
-
+    tree->resetOpCounters();
     auto filePath = fs::path(params);
     auto fileHandle = std::ifstream(filePath, std::ios::in);
     if (fileHandle.bad()) {
@@ -483,19 +509,32 @@ void Dbms::GenTestFile(std::string const &params) {
     auto ops = {"create", "update", "delete"};
     for (int i = 0; i < size; ++i) {
         auto randomRecord = Record::Random();
-        fileHandle << "create " << uniqueGenerator.getRandom() << ' '
-                   << +randomRecord.get_grade(1) << ' '
-                   << +randomRecord.get_grade(2) << ' '
-                   << +randomRecord.get_grade(3) << '\n';
+        if (Tools::probability(0.10) && uniqueGenerator.getDrawedNumbers().size()) {
+            auto index = Tools::random(0ul, uniqueGenerator.getDrawedNumbers().size() - 1);
+            auto it = uniqueGenerator.getDrawedNumbers().begin();
+            std::advance(it, index);
+            auto key = *it;
+            fileHandle << "update " << key << ' '
+                       << +randomRecord.get_grade(1) << ' '
+                       << +randomRecord.get_grade(2) << ' '
+                       << +randomRecord.get_grade(3) << '\n';
+        } else {
+            fileHandle << "create " << uniqueGenerator.getRandom() << ' '
+                       << +randomRecord.get_grade(1) << ' '
+                       << +randomRecord.get_grade(2) << ' '
+                       << +randomRecord.get_grade(3) << '\n';
+        }
+
     }
 }
 
 
 void Dbms::PrintTree(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
+    tree->resetOpCounters();
     Dbms::tree->print();
     std::cout << '\n';
 }
@@ -503,20 +542,22 @@ void Dbms::PrintTree(std::string const &params) {
 
 void Dbms::DrawTree(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
+    tree->resetOpCounters();
     Dbms::tree->draw();
 }
 
 
 void Dbms::TruncateTree(std::string const &params) {
     if (!tree) {
-        std::cout << "No loaded database\n";
+        std::cout << "No opened database\n";
         return;
     }
     tree = std::make_unique<BTreeType>(tree->filePath, OpenMode::CREATE_NEW);
 }
+
 
 bool Dbms::ConfirmOverridingExistingFile(fs::path const &path) {
     if (fs::exists(path)) {
@@ -530,6 +571,16 @@ bool Dbms::ConfirmOverridingExistingFile(fs::path const &path) {
         fs::remove(path);
     }
     return true;
+}
+
+
+void Dbms::LastOpStats(std::string const &params) {
+    if (!tree) {
+        std::cout << "No opened database\n";
+        return;
+    }
+    std::cout << "Disk reads:\t" << tree->getCurrentOperationDiskReadsCount() << '\n';
+    std::cout << "Disk writes:\t" << tree->getCurrentOperationDiskWritesCount() << '\n';
 }
 
 

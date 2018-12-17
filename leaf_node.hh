@@ -19,8 +19,8 @@ public:
     LeafNode(size_t fileOffset, File &file, std::shared_ptr<Base> parent = nullptr);
     ~LeafNode() override;
 
-    KeysCollection keys;
-    ValuesCollection values;
+    KeysCollection keys{};
+    ValuesCollection values{};
     static size_t BytesSize();
     LeafNode &insert(TKey const &key, TValue const &value);
     std::optional<TValue> readRecord(TKey const &key) const;
@@ -36,13 +36,13 @@ public:
     LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
                          typename std::vector<std::pair<TKey, TValue>>::iterator it2);
     std::stringstream &print(std::stringstream &ss) const override;
+    size_t fillElementsSize() const override;
 
 private:
     std::ostream &print(std::ostream &o) const override;
     Node<TKey, TValue> &deserialize(std::vector<char> const &bytes) override;
     std::vector<uint8_t> getData() override;
     size_t elementsSize() const override;
-    size_t fillElementsSize() const override;
     size_t bytesSize() const override;
     NodeType nodeType() const override;
     constexpr auto ElementsSize() const noexcept;
@@ -174,7 +174,7 @@ LeafNode<TKey, TValue, TDegree>::updateRecord(TKey const &key, TValue const &val
     for (int i = 0; i < keys.size(); ++i) {
         if (keys[i] == std::nullopt) break;
         if (keys[i] == key) {
-            values[i] = value;
+            values[i]->update(value);
             this->markChanged();
             return;
         }
@@ -198,12 +198,12 @@ LeafNode<TKey, TValue, TDegree>::getRecords() const {
 template<typename TKey, typename TValue, size_t TDegree>
 std::stringstream &
 LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
-    ss << "node" << this->fileOffset << "[xlabel=<" << this->fileOffset << "> label=<";
+    ss << "node" << this->fileOffset << "[xlabel=<<font color='#aaffaa'>" << this->fileOffset << "</font>> label=<{";
     auto records = this->getRecords();
     for (auto it = records.begin(); it != records.end(); it++)
-        ss << it->first << '|' << "<font color='blue'>" << /*it->second*/"R" << "</font>"
-           << ((it == records.end() - 1) ? "" : "|");
-    ss << ">];\n";
+        ss << "{" <<it->first << '|' << "<font color='blue'>" << /*it->second*/"R" << "</font>}"
+           << ((it == records.end() - 1) ? "" : "|") ;
+    ss << "}>];\n";
     return ss;
 }
 

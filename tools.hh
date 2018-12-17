@@ -9,6 +9,7 @@
 #include <functional>
 #include <cxxabi.h>
 #include <random>
+#include <filesystem>
 
 namespace Tools {
     namespace Terminal {
@@ -25,12 +26,15 @@ namespace Tools {
         inline static void set_color(Color color){
             std::cout << "\033[" << static_cast<int>(color) << 'm';
         }
+        inline static std::string getColorString(Color color){
+            return "\033[" + std::to_string(static_cast<int>(color)) + 'm';
+        }
 
     }
     namespace fs = std::filesystem;
     struct Config {
         inline static bool verboseMode = false;
-        inline static int debugLevel = 3;
+        inline static int debugLevel = 0;
     };
 
     template<typename TBase, typename TDerived>
@@ -57,6 +61,23 @@ namespace Tools {
         std::uniform_int_distribution<T> uid{min, max};
         return uid(gen);
     }
+
+
+    /**
+     * Return true with probability given in parameter <0 - 1>
+     * @param p
+     * @return
+     */
+    inline static bool probability(double p){
+        uint64_t precision = 1'000'000;
+        std::random_device rd{};
+        auto gen = std::mt19937_64{rd()};
+        std::uniform_int_distribution<uint64_t> uid{0, precision};
+        auto random =  uid(gen);
+        bool result = precision * p > random;
+        return result;
+    }
+
 
 }
 #endif //SBD2_TOOLS_HH

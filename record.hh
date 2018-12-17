@@ -33,9 +33,9 @@ public:
 
     explicit Record(data_t data);
     explicit Record(std::string const&string);
-    Record(uint8_t grade1, uint8_t grade2, uint8_t grade3);
+    Record(int grade1, int grade2, int grade3);
     ~Record() = default;
-
+    void update(Record const&rec);
 
     uint64_t get_student_id() const;
     uint8_t get_grade(int gradeNumber) const;
@@ -46,7 +46,7 @@ public:
 
 
 private:
-    Record(uint64_t student_id, uint8_t grade1, uint8_t grade2, uint8_t grade3);
+    Record(uint64_t student_id, int grade1, int grade2, int grade3);
 
 
     data_t data;

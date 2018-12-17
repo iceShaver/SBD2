@@ -8,12 +8,13 @@
 #include <set>
 #include <random>
 
-template <typename T>
-class UniqueGenerator final{
+template<typename T>
+class UniqueGenerator final {
     using NumberType = int64_t;
 public:
-    UniqueGenerator(T min, T max) : uid{min, max}, min(min), max(max){}
+    UniqueGenerator(T min, T max) : uid{min, max}, min(min), max(max) {}
     T getRandom();
+    std::set<NumberType> const &getDrawedNumbers() { return drawedNumbers; }
 private:
     std::set<NumberType> drawedNumbers;
     std::random_device rd{};
@@ -25,11 +26,11 @@ private:
 
 template<typename T>
 T UniqueGenerator<T>::getRandom() {
-    if(max - min == drawedNumbers.size() - 1)// TODO: fix overflow
+    if (max - min == drawedNumbers.size() - 1)// TODO: fix overflow
         throw std::runtime_error("Generator is out of unique Random numbers");
-    while(true) {
+    while (true) {
         auto drawedNumber = uid(gen);
-        if(drawedNumbers.find(drawedNumber) == drawedNumbers.end()){
+        if (drawedNumbers.find(drawedNumber) == drawedNumbers.end()) {
             drawedNumbers.insert(drawedNumber);
             return drawedNumber;
         }

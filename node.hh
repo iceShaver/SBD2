@@ -52,9 +52,12 @@ public:
     static uint64_t GetCurrentNodesCount() { return currentNodesCount; }
     static uint64_t GetMaxNodesCount() { return maxNodesCount; }
     static void ResetCounters();
+    virtual size_t fillElementsSize() const = 0;
+    bool isChanged() const { return changed; }
+    bool isLoaded() const { return loaded; }
+
 protected:
     virtual size_t elementsSize() const = 0;
-    virtual size_t fillElementsSize() const = 0;
     virtual size_t bytesSize() const = 0;
     virtual std::vector<uint8_t> getData() = 0;
     std::vector<char> serialize();

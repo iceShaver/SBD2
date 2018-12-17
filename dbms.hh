@@ -20,7 +20,7 @@ class Record;
 
 
 class Dbms final {
-    using BTreeType = BPlusTree<int64_t, Record, 1, 2>;
+    using BTreeType = BPlusTree<int64_t, Record, 1, 4>;
 
 public:
     static int Main(int argc, char **argv);
@@ -44,6 +44,7 @@ private:
     inline static void TruncateTree(std::string const &params = {});
     inline static void PrintRecords(std::string const &params = {});
     inline static void PrintStatistics(std::string const &params = {});
+    inline static void LastOpStats(std::string const &params = {});
     inline static void LoadTestFile(std::string const &params);
     inline static void GenTestFile(std::string const &params);
     // CRUD operations
