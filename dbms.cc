@@ -127,34 +127,35 @@ void Dbms::InitCommands() {
     // @formatter:off
     commands = {
             // dbms operations
-            {"help",           {PrintHelp,          "Prints this help"}},
-            {"exit",           {Exit,               "Close DB file and Exit program"}},
+            {"help",           {PrintHelp,              "Prints this help"}},
+            {"exit",           {Exit,                   "Close DB file and Exit program"}},
 
-            {"open",           {LoadDbFile,         "Open specified db file"}},
-            {"new",            {CreateDbFile,       "Create new db file at specified location"}},
-            {"close",          {CloseDbFile,        "Save and close db file"}},
+            {"open",           {LoadDbFile,             "Open specified db file"}},
+            {"new",            {CreateDbFile,           "Create new db file at specified location"}},
+            {"close",          {CloseDbFile,            "Save and close db file"}},
 
-            {"file",           {PrintDbFile,        "Print content of db file in human readable form to stdout"}},
-            {"nodes",          {PrintTree,          "Print all nodes of tree to stdout"}},
-            {"draw",           {DrawTree,           "Draw and display tree as svg picture"}},
-            {"ls",             {PrintRecords,       "Print all records in order by key value"}},
+            {"file",           {PrintDbFile,            "Print content of db file in human readable form to stdout"}},
+            {"nodes",          {PrintTree,              "Print all nodes of tree to stdout"}},
+            {"draw",           {DrawTree,               "Draw and display tree as svg picture"}},
+            {"ls",             {PrintRecords,           "Print all records in order by key value"}},
+            {"lsd",            {PrintRecordsDescending, "Print all records in order by key value (descending)"}},
 
-            {"test",           {Test,               "Test program"}},
+            {"test",           {Test,                   "Test program"}},
             {"load",           {LoadTestFile,           "Load test file"}},
-            {"gentestfile",    {GenTestFile,        "Generate random test file with specified size (if not size is random"}},
+            {"gentestfile",    {GenTestFile,            "Generate random test file with specified size (if not size is random"}},
             // tree operations
 
 
-            {"truncatetree",   {TruncateTree,       "Remove all records, clean db file"}},
+            {"truncatetree",   {TruncateTree,           "Remove all records, clean db file"}},
             // records operations
-            {"create",         {CreateRecord,       "Create new record"}},
-            {"read",           {ReadRecord,         "Read record"}},
-            {"update",         {UpdateRecord,       "Update record"}},
-            {"delete",         {DeleteRecord,       "Delete record"}},
+            {"create",         {CreateRecord,           "Create new record"}},
+            {"read",           {ReadRecord,             "Read record"}},
+            {"update",         {UpdateRecord,           "Update record"}},
+            {"delete",         {DeleteRecord,           "Delete record"}},
 
 
-            {"stats",          {PrintStatistics,    "Print DB statistics"}},
-            {"lastop",         {LastOpStats,    "Last operation statistics"}}
+            {"stats",          {PrintStatistics,        "Print DB statistics"}},
+            {"lastop",         {LastOpStats,            "Last operation statistics"}}
     };
     // @formatter:on
 }
@@ -415,14 +416,30 @@ void Dbms::PrintRecords(std::string const &params) {
     }
     tree->resetOpCounters();
     std::cout << "Key:\tValue:\n";
+    auto nc = BTreeType::ANode::GetMaxNodesCount();
     int count = 0;
     for (auto[k, v] : *tree) {
+        auto nc = BTreeType::ANode::GetMaxNodesCount();
         std::cout << k << '\t' << v << '\n';
         ++count;
     }
     std::cout << "Total count: " << count << " records\n";
 }
-
+void Dbms::PrintRecordsDescending(std::string const &params) {
+    if (!tree) {
+        std::cout << "No opened database\n";
+        return;
+    }
+    tree->resetOpCounters();
+    std::cout << "Key:\tValue:\n";
+    int count = 0;
+    for (auto it = tree->rbegin(); it != tree->rend(); ++it) {
+        auto[k, v] = *it;
+        std::cout << k << '\t' << v << '\n';
+        ++count;
+    }
+    std::cout << "Total count: " << count << " records\n";
+}
 
 void Dbms::PrintStatistics(std::string const &params) {
     if (!tree) {
@@ -582,6 +599,7 @@ void Dbms::LastOpStats(std::string const &params) {
     std::cout << "Disk reads:\t" << tree->getCurrentOperationDiskReadsCount() << '\n';
     std::cout << "Disk writes:\t" << tree->getCurrentOperationDiskWritesCount() << '\n';
 }
+
 
 
 

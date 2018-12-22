@@ -43,6 +43,7 @@ private:
     inline static void DrawTree(std::string const &params = {});
     inline static void TruncateTree(std::string const &params = {});
     inline static void PrintRecords(std::string const &params = {});
+    inline static void PrintRecordsDescending(std::string const &params = {});
     inline static void PrintStatistics(std::string const &params = {});
     inline static void LastOpStats(std::string const &params = {});
     inline static void LoadTestFile(std::string const &params);

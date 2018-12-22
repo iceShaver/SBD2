@@ -31,6 +31,8 @@ public:
     InnerNode &add(TKey const &key, size_t descendantOffset);
     InnerNode &setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key);
     std::optional<size_t> getNextDescendantOffset(size_t offset) const;
+    std::optional<size_t> getPrevDescendantOffset(size_t offset) const;
+    size_t getLastDescendantOffset() const;
     TKey getKeyBetweenPtrs(size_t aPtr, size_t bPtr);
     std::stringstream &print(std::stringstream &ss) const override;
     bool contains(TKey const &key) const override;
@@ -365,7 +367,8 @@ InnerNode<TKey, TValue, TDegree>::setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TK
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-std::optional<size_t> InnerNode<TKey, TValue, TDegree>::getNextDescendantOffset(size_t offset) const {
+std::optional<size_t>
+InnerNode<TKey, TValue, TDegree>::getNextDescendantOffset(size_t offset) const {
     for (int i = 0; i < this->descendants.size(); ++i) {
         if (this->descendants[i] == std::nullopt)
             return std::nullopt;
@@ -376,8 +379,32 @@ std::optional<size_t> InnerNode<TKey, TValue, TDegree>::getNextDescendantOffset(
             return std::nullopt;
         }
     }
+    throw std::runtime_error("Given descendant offset doesn't exist");
+}
 
 
+template<typename TKey, typename TValue, size_t TDegree>
+std::optional<size_t>
+InnerNode<TKey, TValue, TDegree>::getPrevDescendantOffset(size_t offset) const {
+    for (int i = 0; i < this->descendants.size(); ++i) {
+        if (this->descendants[i] == std::nullopt) {
+            return std::nullopt;
+        }
+        if (this->descendants[i] == offset) {
+            if (i == 0) {
+                return std::nullopt;
+            }
+            return this->descendants[i - 1];
+        }
+    }
+    throw std::runtime_error("Given descendant offset doesn't exist");
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+size_t
+InnerNode<TKey, TValue, TDegree>::getLastDescendantOffset() const {
+    return **std::find_if(descendants.rbegin(), descendants.rend(), [](auto x) { return x != std::nullopt; });
 }
 
 

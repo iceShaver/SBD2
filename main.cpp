@@ -11,9 +11,7 @@ int main(int argc, char **argv) {
 /*
  * Stuff to implement:
  * * removing records and add it to test files
- * !* reverse iterator
  *
- * !*
  * !* experiment
  *
  * Stuff to improve:

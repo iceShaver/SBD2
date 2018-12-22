@@ -32,6 +32,7 @@ public:
 
 
     std::vector<std::pair<TKey, TValue>> getRecords() const;
+    auto getLastRecordIndex()const;
     LeafNode &setRecords(std::vector<std::pair<TKey, TValue>> const &records);
     LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
                          typename std::vector<std::pair<TKey, TValue>>::iterator it2);
@@ -289,6 +290,12 @@ LeafNode<TKey, TValue, TDegree>::contains(TKey const &key) const {
         if (*element == key) return true;
     }
     return false;
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto
+LeafNode<TKey, TValue, TDegree>::getLastRecordIndex() const {
+    return std::distance( std::find_if(keys.rbegin(), keys.rend(), [](auto x){return x != std::nullopt;}), keys.rend()) - 1;
 }
 
 
