@@ -24,7 +24,7 @@ template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &
 template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &, Node<TKey, TValue> const &);
 
 enum class NodeType { INNER, LEAF };
-
+enum NodeState:uint8_t {OK = 0, DELETED_LAST = 1, TOO_SMALL = 2};
 
 template<typename TKey, typename TValue>
 class Node {
@@ -36,9 +36,10 @@ public:
     friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
     friend std::ostream &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> const &node);
     virtual NodeType nodeType() const = 0;
-    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const &key, TValue const &value,
+    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const *const key,
+                                                  TValue const *const value,
                                                   size_t nodeOffset) = 0;
-
+    virtual void mergeWith(std::shared_ptr<Node> &node) = 0;
     virtual std::ostream &print(std::ostream &o) const = 0;
     virtual std::stringstream &print(std::stringstream &ss) const = 0;
     virtual bool contains(TKey const &key) const = 0;
@@ -52,7 +53,9 @@ public:
     static uint64_t GetCurrentNodesCount() { return currentNodesCount; }
     static uint64_t GetMaxNodesCount() { return maxNodesCount; }
     static void ResetCounters();
-    virtual size_t fillElementsSize() const = 0;
+    virtual size_t degree() = 0;
+    virtual size_t fillKeysSize() const = 0;
+    virtual bool operator<(Node const &rhs) const = 0;
     bool isChanged() const { return changed; }
     bool isLoaded() const { return loaded; }
 
@@ -112,7 +115,8 @@ template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
 
 template<typename TKey, typename TValue> std::vector<char> Node<TKey, TValue>::serialize() {
     auto result = std::vector<char>{};
-    result.reserve(this->bytesSize() + 1);
+    auto size = this->bytesSize() + 1;
+    result.reserve(size);
     std::bitset<8> headerByte = 0;
     headerByte[0] = this->empty;
     headerByte[1] = static_cast<bool>(this->nodeType());
@@ -185,6 +189,5 @@ void Node<TKey, TValue>::ResetCounters() {
     maxNodesCount = currentNodesCount = 0;
 
 }
-
 
 #endif //SBD2_NODE_HH

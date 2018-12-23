@@ -6,7 +6,6 @@ int main(int argc, char **argv) {
     return Dbms::Main(argc, argv);
 }
 
-// TODO: whot with reads/writes in nodes?? -> get read/write file to new class
 
 /*
  * Stuff to implement:

@@ -25,19 +25,26 @@ public:
     LeafNode &insert(TKey const &key, TValue const &value);
     std::optional<TValue> readRecord(TKey const &key) const;
     void updateRecord(TKey const &key, TValue const &value);
+    NodeState deleteRecord(TKey const &);
     bool full() const override;
     bool contains(TKey const &key) const override;
-    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value,
+    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *const key,
+                                          TValue const *const value,
                                           size_t nodeOffset) override;
 
-
+    void mergeWith(std::shared_ptr<Base>& other) override;
     std::vector<std::pair<TKey, TValue>> getRecords() const;
-    auto getLastRecordIndex()const;
+    auto getLastRecordIndex() const;
+    auto getKeysRange();
+    auto getValuesRange();
+    auto getLastKey() const;
+    auto getMiddleKey();
     LeafNode &setRecords(std::vector<std::pair<TKey, TValue>> const &records);
     LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
                          typename std::vector<std::pair<TKey, TValue>>::iterator it2);
     std::stringstream &print(std::stringstream &ss) const override;
-    size_t fillElementsSize() const override;
+    size_t fillKeysSize() const override;
+    bool operator<(Base const &rhs) const override;
 
 private:
     std::ostream &print(std::ostream &o) const override;
@@ -47,6 +54,8 @@ private:
     size_t bytesSize() const override;
     NodeType nodeType() const override;
     constexpr auto ElementsSize() const noexcept;
+public:
+    virtual size_t degree();
 };
 
 
@@ -131,7 +140,7 @@ LeafNode<TKey, TValue, TDegree>::BytesSize() {
 
 template<typename TKey, typename TValue, size_t TDegree>
 size_t
-LeafNode<TKey, TValue, TDegree>::fillElementsSize() const {
+LeafNode<TKey, TValue, TDegree>::fillKeysSize() const {
     return static_cast<size_t>(std::count_if(this->keys.begin(), this->keys.end(),
                                              [](auto x) { return x != std::nullopt; }));
 }
@@ -202,8 +211,8 @@ LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
     ss << "node" << this->fileOffset << "[xlabel=<<font color='#aaffaa'>" << this->fileOffset << "</font>> label=<{";
     auto records = this->getRecords();
     for (auto it = records.begin(); it != records.end(); it++)
-        ss << "{" <<it->first << '|' << "<font color='blue'>" << /*it->second*/"R" << "</font>}"
-           << ((it == records.end() - 1) ? "" : "|") ;
+        ss << "{" << it->first << '|' << "<font color='blue'>" << /*it->second*/"R" << "</font>}"
+           << ((it == records.end() - 1) ? "" : "|");
     ss << "}>];\n";
     return ss;
 }
@@ -243,12 +252,15 @@ LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey,
 
 template<typename TKey, typename TValue, size_t TDegree>
 TKey
-LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
-                                                                  TValue const &value, size_t nodeOffset) {
+LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node,
+                                                                  TKey const *const key,
+                                                                  TValue const *const value,
+                                                                  size_t nodeOffset) {
 
     if (node->nodeType() != NodeType::LEAF)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
-    if (std::find(this->keys.begin(), this->keys.end(), key) != this->keys.end())
+
+    if (key != nullptr && (std::find(this->keys.begin(), this->keys.end(), *key) != this->keys.end()))
         throw std::runtime_error("Record with given key already exists");
 
 
@@ -258,24 +270,22 @@ LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_pt
     std::vector<std::pair<TKey, TValue>> aData = this->getRecords();
     std::vector<std::pair<TKey, TValue>> bData = otherNode->getRecords();
 
-    // determine order (which node is left, right) (contains smaller keys), if otherNode is newly created, then it is right
-    bool order = bData.size() != 0 ? aData[0].first < bData[0].first : true;
-    auto nodes = order ? std::pair(this, otherNode.get())
-                       : std::pair(otherNode.get(), this);
     // keys are sorted, hence we can merge
     std::merge(aData.begin(), aData.end(), bData.begin(), bData.end(), std::back_inserter(data),
                [](auto x, auto y) { return x.first < y.first; });
 
-    // insert new key
-    data.insert(std::upper_bound(data.begin(), data.end(), std::pair(key, value),
-                                 [](auto x, auto y) { return x.first < y.first; }), std::pair(key, value));
+    // insert new key-value
+    if (key != nullptr) {
+        data.insert(std::upper_bound(data.begin(), data.end(), std::pair(*key, *value),
+                                     [](auto x, auto y) { return x.first < y.first; }), std::pair(*key, *value));
+    }
     auto middleElementIterator = data.begin() + (data.size() - 1) / 2;
 
     // put first part of data and middle element to the left node
-    nodes.first->setRecords(data.begin(), middleElementIterator + 1);
+    this->setRecords(data.begin(), middleElementIterator + 1);
 
     // put rest in the right node
-    nodes.second->setRecords(middleElementIterator + 1, data.end());
+    otherNode->setRecords(middleElementIterator + 1, data.end());
 
     // return middle key
     return middleElementIterator->first;
@@ -295,7 +305,96 @@ LeafNode<TKey, TValue, TDegree>::contains(TKey const &key) const {
 template<typename TKey, typename TValue, size_t TDegree>
 auto
 LeafNode<TKey, TValue, TDegree>::getLastRecordIndex() const {
-    return std::distance( std::find_if(keys.rbegin(), keys.rend(), [](auto x){return x != std::nullopt;}), keys.rend()) - 1;
+    return std::distance(std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; }),
+                         keys.rend()) - 1;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+NodeState
+LeafNode<TKey, TValue, TDegree>::deleteRecord(TKey const &key) {
+    NodeState result = NodeState::OK;
+    auto const lastRecordIndex = this->getLastRecordIndex();
+    auto const toDeleteRecordIndex = std::find(keys.begin(), keys.end(), key) - keys.begin();
+
+    // delete key
+    auto iK = std::remove(keys.begin(), keys.end(), key);
+    // delete record
+    auto iV = std::move(values.begin() + toDeleteRecordIndex + 1, values.end(), values.begin() + toDeleteRecordIndex);
+
+    // fill empty space with std::nullopt
+    std::fill(iK, keys.end(), std::nullopt);
+    std::fill(iV, values.end(), std::nullopt);
+
+    this->changed = true;
+    if (this->fillKeysSize() < TDegree)
+        result = (NodeState) (result | NodeState::TOO_SMALL);
+    if (lastRecordIndex == toDeleteRecordIndex)
+        result = (NodeState) (result | NodeState::DELETED_LAST);
+    return result;
+
+}
+template<typename TKey, typename TValue, size_t TDegree>
+auto LeafNode<TKey, TValue, TDegree>::getLastKey() const {
+    return *std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; });
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto
+LeafNode<TKey, TValue, TDegree>::getMiddleKey(){
+    auto[begin, end]  = this->getKeysRange();
+    return **(begin + ((begin - end) - 1) / 2);
+}
+
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+size_t LeafNode<TKey, TValue, TDegree>::degree() {
+    return TDegree;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+void
+LeafNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &other) {
+    if (other->nodeType() != NodeType::LEAF)
+        throw std::runtime_error("Internal DB error: merge failed, bad neighbour other type");
+    auto otherNode = std::dynamic_pointer_cast<LeafNode>(other);
+    auto[firstKeysBegin, firstKeysEnd] = this->getKeysRange();
+    auto[secondKeysBegin, secondKeysEnd] = otherNode->getKeysRange();
+    auto[firstValuesBegin, firstValuesEnd] = this->getValuesRange();
+    auto[secondValuesBegin, secondValuesEnd] = otherNode->getValuesRange();
+    // move keys
+    std::move(secondKeysBegin, secondKeysEnd, firstKeysEnd);
+    // move values
+    std::move(secondValuesBegin, secondValuesEnd, firstValuesEnd);
+    this->markChanged();
+    otherNode->remove();
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto
+LeafNode<TKey, TValue, TDegree>::getKeysRange() {
+    auto begin = keys.begin();
+    auto end = std::find_if(keys.rbegin(), keys.rend(), [](auto x){ return x != std::nullopt;}).base();
+    return std::pair(begin, end);
+}
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto
+LeafNode<TKey, TValue, TDegree>::getValuesRange() {
+    auto begin = values.begin();
+    auto end = std::find_if(values.rbegin(), values.rend(), [](auto x){ return x != std::nullopt;}).base();
+    return std::pair(begin, end);
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+bool
+LeafNode<TKey, TValue, TDegree>::operator<(Base const &rhs) const {
+    return *keys[0] < *dynamic_cast<LeafNode const*>(&rhs)->keys[0];
 }
 
 

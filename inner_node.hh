@@ -25,19 +25,27 @@ public:
     InnerNode &setKeys(typename std::vector<TKey>::iterator begIt, typename std::vector<TKey>::iterator endIt);
     InnerNode &setDescendants(typename std::vector<size_t>::iterator begIt,
                               typename std::vector<size_t>::iterator endIt);
-    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key, TValue const &value,
+    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *const key,
+                                          TValue const *const value,
                                           size_t nodeOffset) override;
+    void mergeWith(std::shared_ptr<Base> &node)override;
     bool full() const override;
     InnerNode &add(TKey const &key, size_t descendantOffset);
     InnerNode &setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key);
+    NodeState removeKeyOffsetAfter(size_t offset);
+    auto getKeysRange();
+    auto getDescendantsRange();
+    void swapKeys(TKey const &oldKey, TKey const &newKey);
     std::optional<size_t> getNextDescendantOffset(size_t offset) const;
     std::optional<size_t> getPrevDescendantOffset(size_t offset) const;
     size_t getLastDescendantOffset() const;
+    auto getAfterLastKeyIndex() const;
     TKey getKeyBetweenPtrs(size_t aPtr, size_t bPtr);
     std::stringstream &print(std::stringstream &ss) const override;
     bool contains(TKey const &key) const override;
-    size_t fillElementsSize() const override;
-
+    size_t fillKeysSize() const override;
+    virtual size_t degree();
+    bool operator<(Base const &rhs) const override;
 
     DescendantsCollection descendants{};
     KeysCollection keys{};
@@ -145,8 +153,8 @@ InnerNode<TKey, TValue, TDegree>::BytesSize() {
 
 template<typename TKey, typename TValue, size_t TDegree>
 size_t
-InnerNode<TKey, TValue, TDegree>::fillElementsSize() const {
-    return static_cast<size_t>(std::count_if(this->descendants.begin(), this->descendants.end(),
+InnerNode<TKey, TValue, TDegree>::fillKeysSize() const {
+    return static_cast<size_t>(std::count_if(this->keys.begin(), this->keys.end(),
                                              [](auto x) { return x != std::nullopt; }));
 }
 
@@ -236,13 +244,13 @@ InnerNode<TKey, TValue, TDegree>::add(TKey const &key, size_t descendantOffset) 
  */
 template<typename TKey, typename TValue, size_t TDegree>
 TKey
-InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const &key,
-                                                                   TValue const &value, size_t nodeOffset) {
-    bool isRoot = false;
+InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *const key,
+                                                                   TValue const *const value,
+                                                                   size_t nodeOffset) {
     if (node->nodeType() != NodeType::INNER)
         throw std::runtime_error("Internal DB error: compensation failed, bad neighbour node type");
-    if (nodeOffset == 0)
-        throw std::invalid_argument("Internal DB error: InnerNode compensation failed: nodeOffset cannot be 0");
+    /*if (nodeOffset == 0)
+        throw std::invalid_argument("Internal DB error: InnerNode compensation failed: nodeOffset cannot be 0");*/
 
     auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
 
@@ -253,19 +261,9 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
     auto[aKeys, aDescendants] = this->getEntries();
     auto[bKeys, bDescendants] = otherNode->getEntries();
 
-
-    // determine order (which node is left, right) (contains smaller keys), if otherNode is newly created, then it is right
-    bool order = (bKeys.size() != 0) ? aKeys[0] < bKeys[0] : true;
-    auto keys = order ? std::pair(std::move(aKeys), std::move(bKeys))
-                      : std::pair(std::move(bKeys), std::move(aKeys));
-    auto descendants = order ? std::pair(std::move(aDescendants), std::move(bDescendants))
-                             : std::pair(std::move(bDescendants), std::move(aDescendants));
-    auto nodes = order ? std::pair(this, otherNode.get())
-                       : std::pair(otherNode.get(), this);
-
     // add data from first node
-    std::move(keys.first.begin(), keys.first.end(), std::back_inserter(allKeys));
-    std::move(descendants.first.begin(), descendants.first.end(), std::back_inserter(allDescendants));
+    std::move(aKeys.begin(), aKeys.end(), std::back_inserter(allKeys));
+    std::move(aDescendants.begin(), aDescendants.end(), std::back_inserter(allDescendants));
 
     // not loaded node means it is newly created -> means we are performing split operation
     // (where we don't add parent key and data from second node, because it's empty)
@@ -275,16 +273,18 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
         auto parentKey = std::dynamic_pointer_cast<InnerNode>(this->parent)->getKeyBetweenPtrs(this->fileOffset,
                                                                                                node->fileOffset);
         allKeys.push_back(parentKey);
-        std::move(keys.second.begin(), keys.second.end(), std::back_inserter(allKeys));
-        std::move(descendants.second.begin(), descendants.second.end(), std::back_inserter(allDescendants));
+        std::move(bKeys.begin(), bKeys.end(), std::back_inserter(allKeys));
+        std::move(bDescendants.begin(), bDescendants.end(), std::back_inserter(allDescendants));
     }
 
-    // add new key
-    auto insertIterator = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), key), key);
-    auto insertPosition = insertIterator - allKeys.begin(); // DO NOT put that in one line with above
+    if (key != nullptr) {
+        // add new key
+        auto insertIterator = allKeys.insert(std::upper_bound(allKeys.begin(), allKeys.end(), *key), *key);
+        auto insertPosition = insertIterator - allKeys.begin(); // DO NOT put that in one line with above
 
-    // add new descendant
-    allDescendants.insert(allDescendants.begin() + insertPosition + 1, nodeOffset);
+        // add new descendant
+        allDescendants.insert(allDescendants.begin() + insertPosition + 1, nodeOffset);
+    }
 
     // get middleKey and middleDescendant
     auto middleKeyIterator = allKeys.begin() + (allKeys.size() - 1) / 2;
@@ -295,14 +295,35 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
         throw std::runtime_error("Internal DB error: descendants and keys numbers are incorrect after compensation");
 
     // split data among nodes
-    nodes.first->setKeys(allKeys.begin(), middleKeyIterator);
-    nodes.second->setKeys(middleKeyIterator + 1, allKeys.end());
-    nodes.first->setDescendants(allDescendants.begin(), middleDescendantIterator + 1);
-    nodes.second->setDescendants(middleDescendantIterator + 1, allDescendants.end());
+    this->setKeys(allKeys.begin(), middleKeyIterator);
+    otherNode->setKeys(middleKeyIterator + 1, allKeys.end());
+    this->setDescendants(allDescendants.begin(), middleDescendantIterator + 1);
+    otherNode->setDescendants(middleDescendantIterator + 1, allDescendants.end());
 
     return *middleKeyIterator;
 }
 
+
+template<typename TKey, typename TValue, size_t TDegree>
+void
+InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node) {
+    if (node->nodeType() != NodeType::INNER)
+        throw std::runtime_error("Internal DB error: merge failed, bad neighbour node type");
+    auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
+    auto[firstKeysBegin, firstKeysEnd] = this->getKeysRange();
+    auto[secondKeysBegin, secondKeysEnd] = otherNode->getKeysRange();
+    auto[firstDescendantsBegin, firstDescendantsEnd] = this->getDescendantsRange();
+    auto[secondDescendantsBegin, secondDescendantsEnd] = otherNode->getDescendantsRange();
+    std::move(secondKeysBegin, secondKeysEnd, firstKeysEnd);
+    std::move(secondDescendantsBegin, secondDescendantsEnd, firstDescendantsEnd);
+    this->markChanged();
+    otherNode->remove();
+
+
+
+
+
+}
 
 template<typename TKey, typename TValue, size_t TDegree>
 std::stringstream &
@@ -405,6 +426,77 @@ template<typename TKey, typename TValue, size_t TDegree>
 size_t
 InnerNode<TKey, TValue, TDegree>::getLastDescendantOffset() const {
     return **std::find_if(descendants.rbegin(), descendants.rend(), [](auto x) { return x != std::nullopt; });
+}
+template<typename TKey, typename TValue, size_t TDegree>
+void InnerNode<TKey, TValue, TDegree>::swapKeys(TKey const &oldKey, TKey const &newKey) {
+
+    auto it = std::find(keys.begin(), keys.end(), oldKey);
+    if (it == keys.end()) {
+        throw std::runtime_error("Internal DB error: InnerNode->swapKeys: unable to find given key");
+    }
+    *it = newKey;
+    this->changed = true;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+size_t InnerNode<TKey, TValue, TDegree>::degree() {
+    return TDegree;
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto InnerNode<TKey, TValue, TDegree>::getAfterLastKeyIndex() const {
+    return std::distance(std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; }),
+                         keys.rend());
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto
+InnerNode<TKey, TValue, TDegree>::getKeysRange() {
+    auto begin = keys.begin();
+    auto end = std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; }).base();
+    return std::pair(begin, end);
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+auto InnerNode<TKey, TValue, TDegree>::getDescendantsRange() {
+    auto begin = descendants.begin();
+    auto end = std::find_if(descendants.rbegin(), descendants.rend(), [](auto x) { return x != std::nullopt; }).base();
+    return std::pair(begin, end);
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+NodeState
+InnerNode<TKey, TValue, TDegree>::removeKeyOffsetAfter(size_t offset) {
+    int i = 0;
+    for (auto &o:descendants) {
+        if (o == std::nullopt) {
+            throw std::runtime_error("Internal DB error: innerNode: removeKeyOffsetAfter: given offset not found");
+        }
+        if (o == offset) break;
+        ++i;
+    }
+    i++; // now i is index of offset to delete
+    // removing offset
+    auto lastDesc = std::move(descendants.begin() + i + 1, descendants.end(), descendants.begin() + i);
+    std::fill(lastDesc, descendants.end(), std::nullopt);
+    // removing key
+    auto lastKey = std::move(keys.begin() + i, keys.end(), keys.begin() + i -1);
+    std::fill(lastKey, keys.end(), std::nullopt);
+    this->changed = true;
+    if(this->fillKeysSize() < TDegree)
+        return NodeState::TOO_SMALL;
+    return NodeState::OK;
+}
+template<typename TKey, typename TValue, size_t TDegree>
+bool
+InnerNode<TKey, TValue, TDegree>::operator<(Base const &rhs) const {
+    return *keys[0] < *dynamic_cast<InnerNode const*>(&rhs)->keys[0];
+
 }
 
 

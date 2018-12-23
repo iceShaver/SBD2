@@ -406,6 +406,21 @@ void Dbms::DeleteRecord(std::string const &params) {
         std::cout << "You have to specify key to delete record\n";
         return;
     }
+    try {
+        auto key = std::stoll(params);
+        tree->deleteRecord(key);
+    }catch (std::invalid_argument const &e){
+        std::cout << "Invalid arguments: " << params << '\n';
+        std::cout << e.what() << '\n';
+        return;
+    }catch (std::runtime_error const &e) {
+        std::cout << "Error while deletion of record: " + params + '\n';
+        std::cout << e.what() << '\n';
+        return;
+    }
+
+
+
 }
 
 
@@ -483,6 +498,10 @@ void Dbms::LoadTestFile(std::string const &params) {
     }
     tree->resetOpCounters();
     auto filePath = fs::path(params);
+    if(!fs::exists(filePath)){
+        std::cout << "File: " << fs::absolute(filePath) << " does not exist\n";
+        return;
+    }
     auto fileHandle = std::ifstream(filePath, std::ios::in);
     if (fileHandle.bad()) {
         std::cout << "Unable to open file: " << fs::absolute(filePath) << '\n';
