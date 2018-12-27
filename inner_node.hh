@@ -17,64 +17,49 @@ class InnerNode final : public Node<TKey, TValue> {
 
 public:
     InnerNode(size_t fileOffset, File &file, std::shared_ptr<Base> const &parent = nullptr);
-    ~InnerNode() override;
+    ~InnerNode() override { this->unload(); };
 
-    static size_t BytesSize();
-    std::pair<std::vector<TKey>, std::vector<size_t>> getEntries() const;
-    InnerNode &setEntries(std::pair<std::vector<TKey>, std::vector<size_t>> const &entries);
-    InnerNode &setKeys(typename std::vector<TKey>::iterator begIt, typename std::vector<TKey>::iterator endIt);
-    InnerNode &setDescendants(typename std::vector<size_t>::iterator begIt,
-                              typename std::vector<size_t>::iterator endIt);
-    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *const key,
-                                          TValue const *const value,
-                                          size_t nodeOffset) override;
-    void mergeWith(std::shared_ptr<Base> &node, TKey const*const key = nullptr)override;
-    bool full() const override;
-    InnerNode &add(TKey const &key, size_t descendantOffset);
-    InnerNode &setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key);
+    static constexpr auto BytesSize() { return sizeof(DescendantsCollection) + sizeof(KeysCollection); };
+    auto getEntries() const -> std::pair<std::vector<TKey>, std::vector<size_t>>;
+    auto setEntries(std::pair<std::vector<TKey>, std::vector<size_t>> const &entries) -> void;
+    auto setKeys(typename std::vector<TKey>::iterator begIt, typename std::vector<TKey>::iterator endIt) -> void;
+    auto setDescendants(typename std::vector<size_t>::iterator begIt,
+                        typename std::vector<size_t>::iterator endIt) -> void;
+
+    auto compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *key,
+                                          TValue const *value,
+                                          size_t nodeOffset) -> TKey override;
+    auto mergeWith(std::shared_ptr<Base> &node, TKey const *key = nullptr) -> void override;
+    auto full() const -> bool override;
+    auto add(TKey const &key, size_t descendantOffset) -> void;
+    auto setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key) -> void;
     auto removeKeyOffsetAfter(size_t offset);
     auto getKeysRange();
     auto getDescendantsRange();
-    void swapKeys(TKey const &oldKey, TKey const &newKey);
-    std::optional<size_t> getNextDescendantOffset(size_t offset) const;
-    std::optional<size_t> getPrevDescendantOffset(size_t offset) const;
-    size_t getLastDescendantOffset() const;
+    auto swapKeys(TKey const &oldKey, TKey const &newKey) -> void;
+    auto getNextDescendantOffset(size_t offset) const -> std::optional<size_t>;
+    auto getPrevDescendantOffset(size_t offset) const -> std::optional<size_t>;
+    auto getLastDescendantOffset() const -> size_t;
     auto getAfterLastKeyIndex() const;
-    TKey getKeyBetweenPtrs(size_t aPtr, size_t bPtr);
-    std::stringstream &print(std::stringstream &ss) const override;
-    bool contains(TKey const &key) const override;
-    size_t fillKeysSize() const override;
-    virtual size_t degree();
-    bool operator<(Base const &rhs) const override;
+    auto getKeyBetweenPtrs(size_t aPtr, size_t bPtr) -> TKey;
+    auto print(std::stringstream &ss) const -> std::stringstream & override;
+    auto contains(TKey const &key) const -> bool override;
+    auto fillKeysSize() const -> size_t override;
+    auto degree() -> size_t override { return TDegree; };
 
     DescendantsCollection descendants{};
     KeysCollection keys{};
 
 private:
-    size_t getKeyIndexBetweenPtrs(size_t aPtr, size_t bPtr);
-    std::ostream &print(std::ostream &o) const override;
-    Node<TKey, TValue> &deserialize(std::vector<char> const &bytes) override;
-    std::vector<uint8_t> getData() override;
-    NodeType nodeType() const override;
-    size_t bytesSize() const override;
-    size_t elementsSize() const override;
-    constexpr auto ElementsSize() const noexcept;
+    auto getKeyIndexBetweenPtrs(size_t aPtr, size_t bPtr) -> size_t;
+    auto print(std::ostream &o) const -> std::ostream & override;
+    auto deserialize(std::vector<char> const &bytes) -> Base & override;
+    auto getData() -> std::vector<uint8_t> override;
+    auto nodeType() const -> NodeType override { return NodeType::INNER; }
+    auto bytesSize() const -> size_t override { return BytesSize(); }
+    auto elementsSize() const -> size_t override { return ElementsSize(); }
+    constexpr auto ElementsSize() const noexcept { return this->descendants.size() + this->keys.size() + 1; }
 };
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-constexpr auto
-InnerNode<TKey, TValue, TDegree>::ElementsSize() const noexcept {
-    return this->descendants.size() + this->keys.size() + 1;
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-NodeType
-InnerNode<TKey, TValue, TDegree>::nodeType() const {
-    return NodeType::INNER;
-}
-
 
 template<typename TKey, typename TValue, size_t TDegree>
 std::vector<uint8_t>
@@ -86,13 +71,6 @@ InnerNode<TKey, TValue, TDegree>::getData() {
     std::copy(keysByteArray->begin(), keysByteArray->end(), std::back_inserter(result));
     std::copy(descendantsByteArray->begin(), descendantsByteArray->end(), std::back_inserter(result));
     return std::move(result);
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t
-InnerNode<TKey, TValue, TDegree>::elementsSize() const {
-    return ElementsSize();
 }
 
 
@@ -125,30 +103,10 @@ InnerNode<TKey, TValue, TDegree>::print(std::ostream &o) const {
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-size_t
-InnerNode<TKey, TValue, TDegree>::bytesSize() const {
-    return BytesSize();
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
 InnerNode<TKey, TValue, TDegree>::InnerNode(size_t fileOffset, File &file,
                                             std::shared_ptr<InnerNode::Base> const &parent) : Base(fileOffset,
                                                                                                    file,
                                                                                                    parent) {}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree>::~InnerNode() {
-    this->unload(); // don't touch this!
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t
-InnerNode<TKey, TValue, TDegree>::BytesSize() {
-    return sizeof(DescendantsCollection) + sizeof(KeysCollection);
-}
 
 
 template<typename TKey, typename TValue, size_t TDegree>
@@ -183,42 +141,38 @@ InnerNode<TKey, TValue, TDegree>::getEntries() const {
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree> &
+void
 InnerNode<TKey, TValue, TDegree>::setEntries(std::pair<std::vector<TKey>, std::vector<size_t>> const &entries) {
     this->changed = true;
     this->keys = KeysCollection();
     this->descendants = DescendantsCollection();
     std::copy(entries.first.begin(), entries.first.end(), this->keys.begin());
     std::copy(entries.second.begin(), entries.second.end(), this->descendants.begin());
-    return *this;
 }
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree> &
+void
 InnerNode<TKey, TValue, TDegree>::setKeys(typename std::vector<TKey>::iterator begIt,
                                           typename std::vector<TKey>::iterator endIt) {
     this->changed = true;
     this->keys = KeysCollection();
     std::copy(begIt, endIt, this->keys.begin());
-    return *this;
 }
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree> &
+void
 InnerNode<TKey, TValue, TDegree>::setDescendants(typename std::vector<size_t>::iterator begIt,
                                                  typename std::vector<size_t>::iterator endIt) {
     this->changed = true;
     this->descendants = DescendantsCollection();
     std::copy(begIt, endIt, this->descendants.begin());
-
-    return *this;
 }
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree> &
+void
 InnerNode<TKey, TValue, TDegree>::add(TKey const &key, size_t descendantOffset) {
     if (this->full()) throw std::runtime_error("Unable to add new key, desc to full node");
     this->changed = true;
@@ -227,7 +181,6 @@ InnerNode<TKey, TValue, TDegree>::add(TKey const &key, size_t descendantOffset) 
     data.first.insert(data.first.begin() + insertPosition, key);
     data.second.insert(data.second.begin() + insertPosition + 1, descendantOffset);
     this->setEntries(data);
-    return *this;
 }
 
 
@@ -306,7 +259,7 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
 
 template<typename TKey, typename TValue, size_t TDegree>
 void
-InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node, TKey const*const key) {
+InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node, TKey const *const key) {
     if (node->nodeType() != NodeType::INNER)
         throw std::runtime_error("Internal DB error: merge failed, bad neighbour node type");
     auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
@@ -314,7 +267,7 @@ InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node, TKey co
     auto[secondKeysBegin, secondKeysEnd] = otherNode->getKeysRange();
     auto[firstDescendantsBegin, firstDescendantsEnd] = this->getDescendantsRange();
     auto[secondDescendantsBegin, secondDescendantsEnd] = otherNode->getDescendantsRange();
-    if(key) *firstKeysEnd = *key;
+    if (key) *firstKeysEnd = *key;
     std::move(secondKeysBegin, secondKeysEnd, firstKeysEnd + 1);
     std::move(secondDescendantsBegin, secondDescendantsEnd, firstDescendantsEnd);
     this->markChanged();
@@ -375,12 +328,11 @@ InnerNode<TKey, TValue, TDegree>::getKeyIndexBetweenPtrs(size_t aPtr, size_t bPt
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-InnerNode<TKey, TValue, TDegree> &
+void
 InnerNode<TKey, TValue, TDegree>::setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key) {
     auto index = getKeyIndexBetweenPtrs(aPtr, bPtr);
     this->changed = true;
     keys[index] = key;
-    return *this;
 }
 
 
@@ -437,13 +389,6 @@ void InnerNode<TKey, TValue, TDegree>::swapKeys(TKey const &oldKey, TKey const &
     this->changed = true;
 }
 
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t InnerNode<TKey, TValue, TDegree>::degree() {
-    return TDegree;
-}
-
-
 template<typename TKey, typename TValue, size_t TDegree>
 auto InnerNode<TKey, TValue, TDegree>::getAfterLastKeyIndex() const {
     return std::distance(std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; }),
@@ -484,22 +429,13 @@ InnerNode<TKey, TValue, TDegree>::removeKeyOffsetAfter(size_t offset) {
     auto lastDesc = std::move(descendants.begin() + i + 1, descendants.end(), descendants.begin() + i);
     std::fill(lastDesc, descendants.end(), std::nullopt);
     // removing key
-    auto lastKey = std::move(keys.begin() + i, keys.end(), keys.begin() + i -1);
+    auto lastKey = std::move(keys.begin() + i, keys.end(), keys.begin() + i - 1);
     std::fill(lastKey, keys.end(), std::nullopt);
     this->changed = true;
-    if(this->fillKeysSize() < TDegree)
+    if (this->fillKeysSize() < TDegree)
         return NodeState::TOO_SMALL;
     return NodeState::OK;
 }
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-bool
-InnerNode<TKey, TValue, TDegree>::operator<(Base const &rhs) const {
-    return *keys[0] < *dynamic_cast<InnerNode const*>(&rhs)->keys[0];
-
-}
-
 
 
 #endif //SBD2_INNER_NODE_HH

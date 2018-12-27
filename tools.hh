@@ -48,7 +48,7 @@ namespace Tools {
             std::invoke(f);
     }
 
-    template<typename T> std::string typeName() {
+    template<typename T> inline static auto typeName() {
         std::unique_ptr<char, void (*)(void *)> t(abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr, nullptr),
                                                   std::free);
         return t ? t.get() : typeid(T).name();

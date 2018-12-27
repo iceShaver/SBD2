@@ -13,51 +13,60 @@
 #include "tools.hh"
 
 class File;
-
 template<typename TKey, typename TValue> class Node;
-
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
-
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
 
-template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &, Node<TKey, TValue> const &);
-template<typename TKey, typename TValue> std::ostream &operator<<(std::stringstream &, Node<TKey, TValue> const &);
+template<typename TKey, typename TValue> auto &operator<<(std::ostream &s, Node<TKey, TValue> const &node){
+    return node.print(s);
+}
+template<typename TKey, typename TValue> auto &operator<<(std::stringstream & s, Node<TKey, TValue> const &node){
+    return node.print(s);
+}
 
 enum class NodeType { INNER, LEAF };
-enum NodeState:uint8_t {OK = 0, DELETED_LAST = 1, TOO_SMALL = 2};
+enum NodeState : uint8_t { OK = 0, DELETED_LAST = 1, TOO_SMALL = 2 };
 
 template<typename TKey, typename TValue>
 class Node {
+
+    friend auto &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
+    friend auto &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> const &node);
+
 public:
     Node() = delete;
     Node(size_t fileOffset, File &file, std::shared_ptr<Node> parent = nullptr);
     virtual ~Node();
 
-    friend std::ostream &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
-    friend std::ostream &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> const &node);
-    virtual NodeType nodeType() const = 0;
-    virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const *const key,
-                                                  TValue const *const value,
-                                                  size_t nodeOffset) = 0;
-    virtual void mergeWith(std::shared_ptr<Node> &node, TKey const*const key = nullptr) = 0;
-    virtual std::ostream &print(std::ostream &o) const = 0;
-    virtual std::stringstream &print(std::stringstream &ss) const = 0;
-    virtual bool contains(TKey const &key) const = 0;
-    Node &load(std::vector<char> const &bytes);
-    Node &unload();
-    Node &markEmpty();
-    Node &markChanged();
-    virtual bool full() const = 0;
+
+    virtual auto nodeType() const -> NodeType = 0;
+    virtual auto compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const *key,
+                                                  TValue const *value,
+                                                  size_t nodeOffset)
+                                                  -> TKey = 0;
+    virtual auto mergeWith(std::shared_ptr<Node> &node, TKey const *key = nullptr) -> void = 0;
+    virtual auto print(std::ostream &o) const -> std::ostream & = 0;
+    virtual auto print(std::stringstream &ss) const -> std::stringstream & = 0;
+    virtual auto contains(TKey const &key) const -> bool = 0;
+    virtual auto full() const -> bool = 0;
+    virtual auto degree() -> size_t = 0;
+    virtual auto fillKeysSize() const -> size_t = 0;
+
+    auto load(std::vector<char> const &bytes);
+    auto unload();
+    auto markEmpty() { changed = true, empty = true; };
+    auto markChanged() { changed = true; };
+
+    auto isChanged() const { return changed; }
+    auto isLoaded() const { return loaded; }
+
+    static auto GetCurrentNodesCount() { return currentNodesCount; }
+    static auto GetMaxNodesCount() { return maxNodesCount; }
+    static auto ResetCounters() { maxNodesCount = currentNodesCount = 0; };
+
+
     std::shared_ptr<Node> parent;
     size_t fileOffset{};
-    static uint64_t GetCurrentNodesCount() { return currentNodesCount; }
-    static uint64_t GetMaxNodesCount() { return maxNodesCount; }
-    static void ResetCounters();
-    virtual size_t degree() = 0;
-    virtual size_t fillKeysSize() const = 0;
-    virtual bool operator<(Node const &rhs) const = 0;
-    bool isChanged() const { return changed; }
-    bool isLoaded() const { return loaded; }
 
 protected:
     virtual size_t elementsSize() const = 0;
@@ -128,22 +137,21 @@ template<typename TKey, typename TValue> std::vector<char> Node<TKey, TValue>::s
 
 
 template<typename TKey, typename TValue>
-Node<TKey, TValue> &
+auto
 Node<TKey, TValue>::load(std::vector<char> const &bytes) {
     Tools::debug([this] { std::clog << "Constructing node from bytes: " << this->fileOffset << '\n'; }, 3);
     this->deserialize(bytes);
     this->loaded = true;
     this->changed = false;
-    return *this;
 }
 
 
 template<typename TKey, typename TValue>
-Node<TKey, TValue> &
+auto
 Node<TKey, TValue>::unload() {
     if (!changed) {
         Tools::debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 3);
-        return *this;
+        return;
     }
     Tools::debug([this] { std::clog << "Unloading node at: " << this->fileOffset << '\n'; }, 3);
     auto bytes = this->serialize();
@@ -154,40 +162,10 @@ Node<TKey, TValue>::unload() {
     if (!this->file.good())Tools::debug([] { std::clog << "Error while writing node\n"; });
     this->changed = false;
     this->loaded = true;
-    return *this;
 }
 
 
-template<typename TKey, typename TValue> std::ostream &operator<<(std::ostream &os, Node<TKey, TValue> const &node) {
-    return node.print(os);
-}
 
 
-template<typename TKey, typename TValue>
-std::ostream &operator<<(std::stringstream &ss, Node<TKey, TValue> const &node) {
-    return node.print(ss);
-}
-
-
-template<typename TKey, typename TValue>
-Node<TKey, TValue> &Node<TKey, TValue>::markEmpty() {
-    this->changed = true;
-    this->empty = true;
-    return *this;
-}
-
-
-template<typename TKey, typename TValue>
-Node<TKey, TValue> &Node<TKey, TValue>::markChanged() {
-    this->changed = true;
-    return *this;
-}
-
-
-template<typename TKey, typename TValue>
-void Node<TKey, TValue>::ResetCounters() {
-    maxNodesCount = currentNodesCount = 0;
-
-}
 
 #endif //SBD2_NODE_HH

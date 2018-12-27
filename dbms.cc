@@ -23,106 +23,6 @@ int Dbms::Main(int argc, char **argv) {
 }
 
 
-void Dbms::Test(std::string const &params) {
-    BPlusTree<int64_t, Record, 1, 1> t("Test.bin", OpenMode::CREATE_NEW);
-    /*for (int i = 0; i < 1000; ++i) {
-        t.createRecord(UniqueGenerator<2000, 3000>::getRandom(), Record::Random());
-    }*/
-    // @formatter:off
-    std::cout<<"Add: "<<20<<'\n';t.createRecord(20,Record{25,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<50<<'\n';t.createRecord(50,Record{12,58,45});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<40<<'\n';t.createRecord(40,Record{45,78,78});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<80<<'\n';t.createRecord(80,Record{25,65,12});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<70<<'\n';t.createRecord(70,Record{32,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<30<<'\n';t.createRecord(30,Record{25,65,98});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<10<<'\n';t.createRecord(10,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<0<<'\n'; t.createRecord(00,Record::Random());t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<15<<'\n';t.createRecord(15,Record::Random());t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<39<<'\n';t.createRecord(39,Record::Random());t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<1000<<'\n';t.createRecord(1000,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<-1000<<'\n';t.createRecord(-1000,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<-555<<'\n';t.createRecord(-555,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<9999<<'\n';t.createRecord(9999,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<453<<'\n';t.createRecord(453,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<543<<'\n';t.createRecord(543,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<123<<'\n';t.createRecord(123,Record{25,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<12<<'\n';t.createRecord(12,Record{12,58,45});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<456<<'\n';t.createRecord(456,Record{45,78,78});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<789<<'\n';t.createRecord(789,Record{25,65,12});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<987<<'\n';t.createRecord(987,Record{32,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<3147<<'\n';t.createRecord(3147,Record{25,65,98});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<1654<<'\n';t.createRecord(1654,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<1046<<'\n';t.createRecord(1000546,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<-1045<<'\n';t.createRecord(-100045,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<4531<<'\n';t.createRecord(4531,Record{21,58,69});t.print();std::cout<<'\n';
-    std::cout<<"Add: "<<5431<<'\n';t.createRecord(5431,Record{21,58,69});t.print();std::cout<<'\n';
-    t.draw();
-    // @formatter:on
-    for (auto[k, v] : t) {
-        std::cout << k << " " << v << '\n';
-    }
-    /*auto it = t.begin();
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-    ++it;
-    std::cout << (*it).first << " " << (*it).second << '\n';
-*/
-
-    std::cout << "success\n";
-}
-
-
 void Dbms::InitCommands() {
     // @formatter:off
     commands = {
@@ -140,7 +40,6 @@ void Dbms::InitCommands() {
             {"ls",             {PrintRecords,           "Print all records in order by key value"}},
             {"lsd",            {PrintRecordsDescending, "Print all records in order by key value (descending)"}},
 
-            {"test",           {Test,                   "Test program"}},
             {"load",           {LoadTestFile,           "Load test file"}},
             {"gentestfile",    {GenTestFile,            "Generate random test file with specified size (if not size is random"}},
             // tree operations

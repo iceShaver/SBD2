@@ -44,7 +44,6 @@ public:
                          typename std::vector<std::pair<TKey, TValue>>::iterator it2);
     std::stringstream &print(std::stringstream &ss) const override;
     size_t fillKeysSize() const override;
-    bool operator<(Base const &rhs) const override;
 
 private:
     std::ostream &print(std::ostream &o) const override;
@@ -391,12 +390,6 @@ LeafNode<TKey, TValue, TDegree>::getValuesRange() {
     return std::pair(begin, end);
 }
 
-
-template<typename TKey, typename TValue, size_t TDegree>
-bool
-LeafNode<TKey, TValue, TDegree>::operator<(Base const &rhs) const {
-    return *keys[0] < *dynamic_cast<LeafNode const*>(&rhs)->keys[0];
-}
 
 
 #endif //SBD2_LEAF_NODE_HH

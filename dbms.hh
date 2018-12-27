@@ -32,7 +32,6 @@ private:
     inline static void ProcessInputLine(std::string const &line);
 
     // Commandline methods
-    inline static void Test(std::string const &params = {});
     inline static void Exit(std::string const &params = {});
     inline static void PrintHelp(std::string const &params = {});
     inline static void CreateDbFile(std::string const &params);
