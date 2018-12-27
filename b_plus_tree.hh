@@ -26,6 +26,7 @@ namespace fs = std::filesystem;
 class Dbms;
 
 enum class OpenMode { USE_EXISTING, CREATE_NEW };
+enum class IteratorT { BEGIN, END };
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
@@ -33,7 +34,9 @@ class BPlusTree;
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::ostream &operator<<(std::ostream &, BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> const &);
+std::ostream &operator<<(std::ostream &o, BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> const &t) {
+    return o << *t.root << '\n';
+};
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
@@ -46,7 +49,7 @@ class BPlusTree final {
 
     class Iterator;
     class ForwardIterator;
-    class BackwardIterator;
+    class ReverseIterator;
 
     using ANode = Node<TKey, TValue>;
     using AInnerNode = InnerNode<TKey, TValue, TInnerNodeDegree>;
@@ -74,8 +77,8 @@ public:
 
     // CRUD operations
     void createRecord(TKey const &key, TValue const &value);
-    auto readRecord(TKey const &key) -> std::optional<TValue>;
-    void updateRecord(TKey const &key, TValue const &value);
+    auto readRecord(TKey const &key) -> std::optional<TValue> { return findProperLeaf(key)->readRecord(key); }
+    void updateRecord(TKey const &key, TValue const &value) { this->findProperLeaf(key)->updateRecord(key, value); }
     void deleteRecord(TKey const &key);
 
     auto findProperDescendantOffset(std::shared_ptr<ANode> node, TKey const &key) -> size_t;
@@ -93,7 +96,7 @@ public:
     auto getNodeNeghbours(std::shared_ptr<ANode> node) -> std::pair<std::shared_ptr<ANode>, std::shared_ptr<ANode>>;
     auto getFirstLeaf() -> std::shared_ptr<ALeafNode>;
     auto getLastLeaf() -> std::shared_ptr<ALeafNode>;
-    void unload();
+    void unload() { root->unload(), updateConfigHeader(); }
 
 
     void draw();
@@ -112,21 +115,21 @@ public:
     auto getCurrentOperationDiskReadsCount() const { return currentOperationDiskReadsCount; }
     auto getCurrentOperationDiskWritesCount() const { return currentOperationDiskWritesCount; }
     auto getHeight();
-    auto getRecordsNumber();
-    auto getNodesCount();
+    auto getRecordsNumber() { return std::count_if(this->begin(), this->end(), [](auto x) { return true; }); };
+    auto getNodesCount() -> std::pair<uint64_t, uint64_t>;
     auto getDiskUtilizationPercent();
     void disableCounters() { countersEnabled = false; }
     void enableCounters() { countersEnabled = true; }
 
-    auto begin() -> ForwardIterator const;
-    auto end() -> ForwardIterator const;
-    auto rbegin() -> BackwardIterator const;
-    auto rend() -> BackwardIterator const;
+    auto begin() -> ForwardIterator const { return ForwardIterator(getFirstLeaf(), this, IteratorT::BEGIN); }
+    auto end() -> ForwardIterator const { return ForwardIterator(); }
+    auto rbegin() -> ReverseIterator const { return BPlusTree::ReverseIterator(getLastLeaf(), this, IteratorT::BEGIN); }
+    auto rend() -> ReverseIterator const { return BPlusTree::ReverseIterator(); };
 
 
 private:
     void getNodesCount(std::shared_ptr<ANode> node, std::pair<uint64_t, uint64_t> &counters);
-    void resetOpCounters();
+    void resetOpCounters() { currentOperationDiskWritesCount = currentOperationDiskReadsCount = 0; }
     void incrementWriteOperationsCounters();
     void incrementReadOperationsCounters();
     void resetCounters();
@@ -144,11 +147,10 @@ private:
     ConfigHeader configHeader;
 };
 
-enum class IteratorType { BEGIN, END, RBEGIN, REND };
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 class BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator {
-
+public:
     // types required for STL
     using difference_type = long long;
     using value_type = std::pair<TKey, TValue>;
@@ -190,8 +192,8 @@ public:
     ForwardIterator(
             std::shared_ptr<ALeafNode> node,
             BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> *tree,
-            IteratorType iteratorType) : Base(node, tree) {
-        if (iteratorType == IteratorType::END) {
+            IteratorT iteratorType) : Base(node, tree) {
+        if (iteratorType == IteratorT::END) {
             this->afterEnd = true;
             this->i = this->node->getLastRecordIndex();
         }
@@ -216,30 +218,30 @@ public:
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-class BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BackwardIterator
+class BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ReverseIterator
         : public BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator {
     using Base = BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator;
 public:
-    BackwardIterator(
+    ReverseIterator(
             std::shared_ptr<ALeafNode> node,
             BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> *tree,
-            IteratorType iteratorType) : Base(node, tree) {
+            IteratorT iteratorType) : Base(node, tree) {
         this->i = this->node->getLastRecordIndex();
-        if (iteratorType == IteratorType::END) {
+        if (iteratorType == IteratorT::END) {
             this->beforeBegin = true;
             this->i = 0;
         }
     }
-    BackwardIterator() { this->beforeBegin = true; };
+    ReverseIterator() { this->beforeBegin = true; };
 
-    auto operator++() -> BackwardIterator & { return this->dec(), *this; } //++x
-    auto operator--() -> BackwardIterator & { return this->inc(), *this; } //--x
-    auto operator--(int) -> BackwardIterator const {
+    auto operator++() -> ReverseIterator & { return this->dec(), *this; } //++x
+    auto operator--() -> ReverseIterator & { return this->inc(), *this; } //--x
+    auto operator--(int) -> ReverseIterator const {
         auto const tmp = *this;
         this->inc();
         return tmp;
     }; // x--
-    auto operator++(int) -> BackwardIterator const {
+    auto operator++(int) -> ReverseIterator const {
         auto const tmp = *this;
         this->dec();
         return tmp;
@@ -461,8 +463,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::~BPlusTree() {
  * @return pointer to read and loaded node
  */
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::shared_ptr<typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ANode>
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t fileOffset) {
+auto
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t fileOffset) -> std::shared_ptr<ANode> {
     char header;
     auto readData = this->file.read(fileOffset,
                                     sizeof(header) + std::max(AInnerNode::BytesSize(), ALeafNode::BytesSize()));
@@ -828,13 +830,6 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::merge(std::shar
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::ostream &
-operator<<(std::ostream &os, BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> const &bPlusTree) {
-    return os << "Printing whole B-Tree:\n" << *bPlusTree.root << '\n'; //TODO: implement printing whole tree
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> &
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::updateConfigHeader() {
     configHeader.rootOffset = this->root->fileOffset;
@@ -898,20 +893,6 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::createRecord(TKey co
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::optional<TValue>
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readRecord(TKey const &key) {
-    return findProperLeaf(key)->readRecord(key);
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::updateRecord(TKey const &key, TValue const &value) {
-    this->findProperLeaf(key)->updateRecord(key, value);
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 void
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::deleteRecord(TKey const &key) {
     auto node = this->findProperLeaf(key);
@@ -931,7 +912,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::deleteRecord(TKey co
     // if deleted last key get new last key and put it in the ancestor instead of old one (if exists)
     if (nodeState & NodeState::DELETED_LAST) {
         auto lastKey = node->getLastKey();
-        std::shared_ptr<AInnerNode> parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
+        auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
         while (parent != nullptr) {
             if (parent->contains(key)) {
                 parent->swapKeys(key, lastKey);
@@ -947,32 +928,13 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::deleteRecord(TKey co
             merge(node);
         }
     }
-
-    // else try compensate with neighbour
-
-
-    // if parent has then less than TInnerNodeDegree keys -> try compensate parent, if not possible -> merge
-
-    // done
 }
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 size_t
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperDescendantOffset(std::shared_ptr<ANode> node,
                                                                                        TKey const &key) {
-    if (node->nodeType() == NodeType::LEAF)
-        throw std::invalid_argument("Can't find descendants of leaf node");
-    auto innerNode = std::dynamic_pointer_cast<AInnerNode>(node);
-    auto foundLowerBound = std::lower_bound(innerNode->keys.begin(), innerNode->keys.end(), key,
-                                            [](auto element, auto value) {
-                                                if (!element) return false;
-                                                return *element < value;
-                                            });
-    auto ptrIndex = foundLowerBound - innerNode->keys.begin();
-    auto descendantOffset = innerNode->descendants[ptrIndex];
-    if (!descendantOffset)
-        throw std::runtime_error("Internal DB error: couldn't find descendant");
-    return *descendantOffset;
+    return std::dynamic_pointer_cast<AInnerNode>(node)->getDescendantsOfKey(key).first;
 }
 
 
@@ -1025,8 +987,9 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::gvcPrintNodeAndDesce
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::shared_ptr<typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ALeafNode>
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperLeaf(TKey const &key) {
+auto
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperLeaf(TKey const &key)
+-> std::shared_ptr<ALeafNode> {
     std::shared_ptr<ANode> node = root;
     while (node->nodeType() != NodeType::LEAF) {
         auto descendantOffset = findProperDescendantOffset(node, key);
@@ -1039,14 +1002,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::findProperLeaf(TKey 
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::string BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::name() const {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::name() const -> std::string{
     return "B+ tree with keys="s + Tools::typeName<TKey>() + ", values=" + Tools::typeName<TValue>();
-}
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::resetOpCounters() {
-    currentOperationDiskWritesCount = currentOperationDiskReadsCount = 0;
-
 }
 
 
@@ -1067,21 +1024,16 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::incrementReadOp
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::resetCounters() {
+auto
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::resetCounters() -> void {
     sessionDiskReadsCount = sessionDiskWritesCount = currentOperationDiskReadsCount = currentOperationDiskWritesCount = 0;
     ANode::ResetCounters();
 }
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::unload() {
-    this->root->unload();
-    this->updateConfigHeader();
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printFile() {
+void
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printFile() {
     this->unload();
     auto offset = 0u;
     auto configHeader = file.read<ConfigHeader>(offset);
@@ -1118,35 +1070,6 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printFile() {
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ForwardIterator const
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::begin() {
-    auto firstNode = this->getFirstLeaf();
-    return ForwardIterator(firstNode, this, IteratorType::BEGIN);
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ForwardIterator const
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::end() {
-    return ForwardIterator();
-}
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BackwardIterator const
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::rbegin() {
-    auto lastLeaf = this->getLastLeaf();
-    return BPlusTree::BackwardIterator(lastLeaf, this, IteratorType::BEGIN);
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-typename BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::BackwardIterator const
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::rend() {
-    return BPlusTree::BackwardIterator();
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getHeight() {
     auto node = root;
     int counter = 1;
@@ -1159,16 +1082,8 @@ auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getHeight() {
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getRecordsNumber() {
-    int counter = 0;
-    for (auto _:*this) counter++;
-    return counter;
-}
-
-
-template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 auto
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getNodesCount() {
+BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getNodesCount() -> std::pair<uint64_t, uint64_t> {
     auto counters = std::pair<uint64_t, uint64_t>(0, 0);
     this->getNodesCount(this->root, counters);
     return counters;

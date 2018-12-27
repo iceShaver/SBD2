@@ -32,10 +32,10 @@ public:
     Record &operator=(Record &&) = default;
 
     explicit Record(data_t data);
-    explicit Record(std::string const&string);
+    explicit Record(std::string const &string);
     Record(int grade1, int grade2, int grade3);
     ~Record() = default;
-    void update(Record const&rec);
+    void update(Record const &rec);
 
     uint64_t get_student_id() const;
     uint8_t get_grade(int gradeNumber) const;
@@ -43,7 +43,10 @@ public:
     friend std::ostream &operator<<(std::ostream &os, const Record &record);
 
     static Record Random();
-
+    bool operator<(Record const &rhs) const { return get_student_id() < rhs.get_student_id(); }
+    bool operator>(Record const &rhs) const { return get_student_id() > rhs.get_student_id(); }
+    bool operator<=(Record const &rhs) const { return get_student_id() <= rhs.get_student_id(); }
+    bool operator>=(Record const &rhs) const { return get_student_id() >= rhs.get_student_id(); }
 
 private:
     Record(uint64_t student_id, int grade1, int grade2, int grade3);

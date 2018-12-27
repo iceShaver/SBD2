@@ -17,10 +17,11 @@ template<typename TKey, typename TValue> class Node;
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
 
-template<typename TKey, typename TValue> auto &operator<<(std::ostream &s, Node<TKey, TValue> const &node){
+using Byte = char;
+template<typename TKey, typename TValue> auto &operator<<(std::ostream &s, Node<TKey, TValue> const &node) {
     return node.print(s);
 }
-template<typename TKey, typename TValue> auto &operator<<(std::stringstream & s, Node<TKey, TValue> const &node){
+template<typename TKey, typename TValue> auto &operator<<(std::stringstream &s, Node<TKey, TValue> const &node) {
     return node.print(s);
 }
 
@@ -33,6 +34,10 @@ class Node {
     friend auto &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
     friend auto &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> const &node);
 
+
+    template<typename, typename, size_t, size_t> friend class BPlusTree;
+
+
 public:
     Node() = delete;
     Node(size_t fileOffset, File &file, std::shared_ptr<Node> parent = nullptr);
@@ -43,7 +48,7 @@ public:
     virtual auto compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const *key,
                                                   TValue const *value,
                                                   size_t nodeOffset)
-                                                  -> TKey = 0;
+    -> TKey = 0;
     virtual auto mergeWith(std::shared_ptr<Node> &node, TKey const *key = nullptr) -> void = 0;
     virtual auto print(std::ostream &o) const -> std::ostream & = 0;
     virtual auto print(std::stringstream &ss) const -> std::stringstream & = 0;
@@ -69,18 +74,22 @@ public:
     size_t fileOffset{};
 
 protected:
+    using NodeOffset = size_t;
+
     virtual size_t elementsSize() const = 0;
     virtual size_t bytesSize() const = 0;
-    virtual std::vector<uint8_t> getData() = 0;
-    std::vector<char> serialize();
-    virtual Node &deserialize(std::vector<char> const &bytes) = 0;
+    virtual std::vector<Byte> getData() = 0;
+    std::vector<Byte> serialize();
+    virtual auto deserialize(std::vector<Byte> const &bytes) -> void = 0;
     void remove();
+    void incCounter() { maxNodesCount = std::max(maxNodesCount, ++currentNodesCount); };
+    void decCounter() { --currentNodesCount; };
+
     File &file;
     bool empty;
     bool changed;
     bool loaded;
-    void incCounter();
-    void decCounter();
+
     inline static uint64_t currentNodesCount = 0;
     inline static uint64_t maxNodesCount = 0;
 };
@@ -92,19 +101,6 @@ Node<TKey, TValue>::Node(size_t const fileOffset, File &file, std::shared_ptr<No
           loaded(false) {
     Tools::debug([this] { std::clog << "Created node: " << this->fileOffset << '\n'; }, 2);
     incCounter();
-}
-
-
-template<typename TKey, typename TValue>
-void Node<TKey, TValue>::incCounter() {
-    currentNodesCount++;
-    if (currentNodesCount > maxNodesCount) maxNodesCount = currentNodesCount;
-}
-
-
-template<typename TKey, typename TValue>
-void Node<TKey, TValue>::decCounter() {
-    currentNodesCount--;
 }
 
 
@@ -163,9 +159,6 @@ Node<TKey, TValue>::unload() {
     this->changed = false;
     this->loaded = true;
 }
-
-
-
 
 
 #endif //SBD2_NODE_HH

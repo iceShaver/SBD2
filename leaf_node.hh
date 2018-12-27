@@ -14,80 +14,70 @@ class LeafNode final : public Node<TKey, TValue> {
     using Base = Node<TKey, TValue>;
     using KeysCollection = std::array<std::optional<TKey>, 2 * TDegree>;
     using ValuesCollection =  std::array<std::optional<TValue>, 2 * TDegree>;
+    using KeysIterator = typename KeysCollection::iterator;
+    using ValuesIterator = typename ValuesCollection::iterator;
+    using KeysValuesIterator = typename std::vector<std::pair<TKey, TValue>>::iterator;
+    using KeysReverseIterator = typename KeysCollection::reverse_iterator;
+    using ValuesReverseIterator = typename ValuesCollection::reverse_iterator;
+    using KeysRange = std::pair<KeysIterator, KeysIterator>;
+    using ValuesRange = std::pair<ValuesIterator, ValuesIterator>;
+    using KeysReverseRange = std::pair<KeysReverseIterator, KeysReverseIterator>;
+    using ValuesReverseRange = std::pair<ValuesReverseIterator, ValuesReverseIterator>;
 
+    template<typename, typename, size_t, size_t> friend class BPlusTree;
 public:
-    LeafNode(size_t fileOffset, File &file, std::shared_ptr<Base> parent = nullptr);
-    ~LeafNode() override;
+    LeafNode(size_t fileOffset, File &file, std::shared_ptr<Base> parent = nullptr) : Base(fileOffset, file, parent) {}
+    ~LeafNode() override { this->unload(); }
+
+
+    static auto BytesSize() { return sizeof(KeysCollection) + sizeof(ValuesCollection); }
+    auto insert(TKey const &key, TValue const &value) -> void;
+    auto readRecord(TKey const &key) const -> std::optional<TValue>;
+    auto updateRecord(TKey const &key, TValue const &value) -> void;
+    auto deleteRecord(TKey const &) -> NodeState;
+    auto full() const -> bool override { return std::none_of(keys.begin(), keys.end(), [](auto x) { return !x; }); }
+    auto contains(TKey const &key) const -> bool override;
+    auto compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *key,
+                                          TValue const *value,
+                                          size_t nodeOffset) -> TKey override;
+
+    auto mergeWith(std::shared_ptr<Base> &other, TKey const *) -> void override;
+    auto getRecords() const -> std::vector<std::pair<TKey, TValue>>;
+    auto getLastRecordIndex() const -> long;
+    auto getKeysRange() -> KeysRange;
+    auto getKeysRangeReverse() -> KeysReverseRange;
+    auto getValuesRange() -> ValuesRange;
+    auto getValuesRangeReverse() -> ValuesReverseRange;
+    auto getLastKey() const { return **std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x; }); }
+    auto setRecords(KeysValuesIterator it1, KeysValuesIterator it2) -> void;
+    auto print(std::stringstream &ss) const -> std::stringstream & override;
+    auto fillKeysSize() const -> size_t override;
+    virtual size_t degree() { return TDegree; }
+
+
+private:
+    auto print(std::ostream &o) const -> std::ostream & override;
+    auto deserialize(std::vector<Byte> const &bytes) -> void override;
+    auto getData() -> std::vector<Byte> override;
+    auto elementsSize() const -> size_t override { return ElementsSize(); }
+    auto bytesSize() const -> size_t override { return BytesSize(); }
+    auto nodeType() const -> NodeType { return NodeType::LEAF; }
+    constexpr auto ElementsSize() const noexcept { return this->keys.size() + this->values.size() + 1; }
+
 
     KeysCollection keys{};
     ValuesCollection values{};
-    static size_t BytesSize();
-    LeafNode &insert(TKey const &key, TValue const &value);
-    std::optional<TValue> readRecord(TKey const &key) const;
-    void updateRecord(TKey const &key, TValue const &value);
-    NodeState deleteRecord(TKey const &);
-    bool full() const override;
-    bool contains(TKey const &key) const override;
-    TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *const key,
-                                          TValue const *const value,
-                                          size_t nodeOffset) override;
-
-    void mergeWith(std::shared_ptr<Base>& other, TKey const*const key = nullptr) override;
-    std::vector<std::pair<TKey, TValue>> getRecords() const;
-    auto getLastRecordIndex() const;
-    auto getKeysRange();
-    auto getValuesRange();
-    auto getLastKey() const;
-    auto getMiddleKey();
-    LeafNode &setRecords(std::vector<std::pair<TKey, TValue>> const &records);
-    LeafNode &setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
-                         typename std::vector<std::pair<TKey, TValue>>::iterator it2);
-    std::stringstream &print(std::stringstream &ss) const override;
-    size_t fillKeysSize() const override;
-
-private:
-    std::ostream &print(std::ostream &o) const override;
-    Node<TKey, TValue> &deserialize(std::vector<char> const &bytes) override;
-    std::vector<uint8_t> getData() override;
-    size_t elementsSize() const override;
-    size_t bytesSize() const override;
-    NodeType nodeType() const override;
-    constexpr auto ElementsSize() const noexcept;
 public:
-    virtual size_t degree();
+
 };
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-LeafNode<TKey, TValue, TDegree>::LeafNode(size_t fileOffset, File &file,
-                                          std::shared_ptr<Base> parent) : Base(fileOffset, file, parent) {}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t
-LeafNode<TKey, TValue, TDegree>::elementsSize() const {
-    return ElementsSize();
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-constexpr auto
-LeafNode<TKey, TValue, TDegree>::ElementsSize() const noexcept {
-    return this->keys.size() + this->values.size() + 1;
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-NodeType
-LeafNode<TKey, TValue, TDegree>::nodeType() const { return NodeType::LEAF; }
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-std::vector<uint8_t>
-LeafNode<TKey, TValue, TDegree>::getData() {
-    auto result = std::vector<uint8_t>();
-    auto keysByteArray = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();
-    auto valuesByteArray = (std::array<uint8_t, sizeof(this->values)> *) (this->values.data());
+auto
+LeafNode<TKey, TValue, TDegree>::getData() -> std::vector<Byte>{
+    auto result = std::vector<Byte>();
+    auto keysByteArray = (std::array<Byte, sizeof(this->keys)> *) this->keys.data();
+    auto valuesByteArray = (std::array<Byte, sizeof(this->values)> *) (this->values.data());
     result.reserve(keysByteArray->size() + valuesByteArray->size());
     std::copy(keysByteArray->begin(), keysByteArray->end(), std::back_inserter(result));
     std::copy(valuesByteArray->begin(), valuesByteArray->end(), std::back_inserter(result));
@@ -96,14 +86,13 @@ LeafNode<TKey, TValue, TDegree>::getData() {
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-Node<TKey, TValue> &
-LeafNode<TKey, TValue, TDegree>::deserialize(std::vector<char> const &bytes) {
+auto
+LeafNode<TKey, TValue, TDegree>::deserialize(std::vector<Byte> const &bytes) -> void{
     this->changed = true;
-    auto valuesBytePtr = (std::array<uint8_t, sizeof(this->values)> *) this->values.data();
-    auto keysBytePtr = (std::array<uint8_t, sizeof(this->keys)> *) this->keys.data();
+    auto valuesBytePtr = (std::array<Byte, sizeof(this->values)> *) this->values.data();
+    auto keysBytePtr = (std::array<Byte, sizeof(this->keys)> *) this->keys.data();
     std::copy_n(bytes.begin(), keysBytePtr->size(), keysBytePtr->begin());
     std::copy_n(bytes.begin() + keysBytePtr->size(), valuesBytePtr->size(), valuesBytePtr->begin());
-    return *this;
 }
 
 
@@ -119,50 +108,24 @@ LeafNode<TKey, TValue, TDegree>::print(std::ostream &o) const {
 
 template<typename TKey, typename TValue, size_t TDegree>
 size_t
-LeafNode<TKey, TValue, TDegree>::bytesSize() const {
-    return BytesSize();
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-LeafNode<TKey, TValue, TDegree>::~LeafNode() {
-    this->unload(); // don't touch this!
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t
-LeafNode<TKey, TValue, TDegree>::BytesSize() {
-    return sizeof(KeysCollection) + sizeof(ValuesCollection);
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t
 LeafNode<TKey, TValue, TDegree>::fillKeysSize() const {
-    return static_cast<size_t>(std::count_if(this->keys.begin(), this->keys.end(),
-                                             [](auto x) { return x != std::nullopt; }));
+    return static_cast<size_t>(std::count_if(keys.begin(), keys.end(), [](auto x) { return x; }));
 }
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-bool
-LeafNode<TKey, TValue, TDegree>::full() const {
-    return std::find(this->keys.begin(), this->keys.end(), std::nullopt) == this->keys.end();
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-LeafNode<TKey, TValue, TDegree> &
+void
 LeafNode<TKey, TValue, TDegree>::insert(TKey const &key, TValue const &value) {
-
     if (this->full()) throw std::runtime_error("Tried to add element to full node");
-    this->changed = true;
-    auto records = this->getRecords();
-    records.insert(std::upper_bound(records.begin(), records.end(), std::pair(key, value),
-                                    [](auto x, auto y) { return x.first < y.first; }), std::pair(key, value));
-    this->setRecords(records);
-    return *this;
+    this->markChanged();
+    auto[keysBeginReverse, keysEndReverse] = getKeysRangeReverse();
+    auto[keysBegin, keysEnd] = getKeysRange();
+    auto[valuesBeginReverse, valuesEndReverse] = getValuesRangeReverse();
+    auto i = std::upper_bound(keysBegin, keysEnd, key) - keysBegin;
+    std::move(keysBeginReverse, keysEndReverse - i, keysBeginReverse - 1);
+    keys[i] = key;
+    std::move(valuesBeginReverse, valuesEndReverse - i, valuesBeginReverse - 1);
+    values[i] = value;
 }
 
 
@@ -218,34 +181,22 @@ LeafNode<TKey, TValue, TDegree>::print(std::stringstream &ss) const {
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-LeafNode<TKey, TValue, TDegree> &
-LeafNode<TKey, TValue, TDegree>::setRecords(std::vector<std::pair<TKey, TValue>> const &records) {
-    this->changed = true;
-    KeysCollection keys;
-    ValuesCollection values;
-    std::transform(records.begin(), records.end(), keys.begin(), [](auto x) { return x.first; });
-    std::transform(records.begin(), records.end(), values.begin(), [](auto x) { return x.second; });
-    this->keys = std::move(keys);
-    this->values = std::move(values);
-    return *this;
-}
+void
+LeafNode<TKey, TValue, TDegree>::setRecords(KeysValuesIterator it1,
+                                            KeysValuesIterator it2) {
 
-
-template<typename TKey, typename TValue, size_t TDegree>
-LeafNode<TKey, TValue, TDegree> &
-LeafNode<TKey, TValue, TDegree>::setRecords(typename std::vector<std::pair<TKey, TValue>>::iterator it1,
-                                            typename std::vector<std::pair<TKey, TValue>>::iterator it2) {
-    auto distance = std::distance(it1, it2);
-    if (distance > this->keys.size())
+    if (std::distance(it1, it2) > this->keys.size())
         throw std::runtime_error("Internal DB error: too much records in node to set");
-    this->changed = true;
-    KeysCollection keys;
-    ValuesCollection values;
-    std::transform(it1, it2, keys.begin(), [](auto x) { return x.first; });
-    std::transform(it1, it2, values.begin(), [](auto x) { return x.second; });
-    this->keys = std::move(keys);
-    this->values = std::move(values);
-    return *this;
+    this->markChanged();
+    auto keysI = keys.begin();
+    auto valuesI = values.begin();
+    std::for_each(it1, it2, [&keysI, &valuesI](auto x) {
+        *keysI++ = std::move(x.first);
+        *valuesI++ = std::move(x.second);
+    });
+    std::fill(keysI, keys.end(), std::nullopt);
+    std::fill(valuesI, values.end(), std::nullopt);
+
 }
 
 
@@ -264,20 +215,20 @@ LeafNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_pt
 
 
     auto otherNode = std::dynamic_pointer_cast<LeafNode>(node);
-    std::vector<std::pair<TKey, TValue>> data;
-
-    std::vector<std::pair<TKey, TValue>> aData = this->getRecords();
-    std::vector<std::pair<TKey, TValue>> bData = otherNode->getRecords();
+    auto aData = this->getRecords();
+    auto bData = otherNode->getRecords();
+    auto data = std::vector<std::pair<TKey, TValue>>();
+    data.reserve(aData.size() + bData.size() + 1);
 
     // keys are sorted, hence we can merge
     std::merge(aData.begin(), aData.end(), bData.begin(), bData.end(), std::back_inserter(data),
                [](auto x, auto y) { return x.first < y.first; });
 
-    // insert new key-value
+    // insert new key and value
     if (key != nullptr) {
-        data.insert(std::upper_bound(data.begin(), data.end(), std::pair(*key, *value),
-                                     [](auto x, auto y) { return x.first < y.first; }), std::pair(*key, *value));
+        data.insert(std::upper_bound(data.begin(), data.end(), std::pair(*key, *value)), std::pair(*key, *value));
     }
+
     auto middleElementIterator = data.begin() + (data.size() - 1) / 2;
 
     // put first part of data and middle element to the left node
@@ -301,11 +252,11 @@ LeafNode<TKey, TValue, TDegree>::contains(TKey const &key) const {
     return false;
 }
 
+
 template<typename TKey, typename TValue, size_t TDegree>
-auto
+long
 LeafNode<TKey, TValue, TDegree>::getLastRecordIndex() const {
-    return std::distance(std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; }),
-                         keys.rend()) - 1;
+    return std::distance(std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x; }), keys.rend()) - 1;
 }
 
 
@@ -317,79 +268,75 @@ LeafNode<TKey, TValue, TDegree>::deleteRecord(TKey const &key) {
     auto const toDeleteRecordIndex = std::find(keys.begin(), keys.end(), key) - keys.begin();
 
     // delete key
-    auto iK = std::remove(keys.begin(), keys.end(), key);
+    auto keysI = std::remove(keys.begin(), keys.end(), key);
     // delete record
-    auto iV = std::move(values.begin() + toDeleteRecordIndex + 1, values.end(), values.begin() + toDeleteRecordIndex);
+    auto valuesI = std::move(values.begin() + toDeleteRecordIndex + 1, values.end(),
+                             values.begin() + toDeleteRecordIndex);
 
     // fill empty space with std::nullopt
-    std::fill(iK, keys.end(), std::nullopt);
-    std::fill(iV, values.end(), std::nullopt);
+    std::fill(keysI, keys.end(), std::nullopt);
+    std::fill(valuesI, values.end(), std::nullopt);
 
-    this->changed = true;
+
+    // check if node contains valid number of elements
     if (this->fillKeysSize() < TDegree)
         result = (NodeState) (result | NodeState::TOO_SMALL);
     if (lastRecordIndex == toDeleteRecordIndex)
         result = (NodeState) (result | NodeState::DELETED_LAST);
+    this->markChanged();
     return result;
 
-}
-template<typename TKey, typename TValue, size_t TDegree>
-auto
-LeafNode<TKey, TValue, TDegree>::getLastKey() const {
-    return **std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; });
-}
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-auto
-LeafNode<TKey, TValue, TDegree>::getMiddleKey(){
-    auto[begin, end]  = this->getKeysRange();
-    return **(begin + ((begin - end) - 1) / 2);
-}
-
-
-
-template<typename TKey, typename TValue, size_t TDegree>
-size_t LeafNode<TKey, TValue, TDegree>::degree() {
-    return TDegree;
 }
 
 
 template<typename TKey, typename TValue, size_t TDegree>
 void
-LeafNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &other, TKey const*const key) {
+LeafNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &other, TKey const *const) {
     if (other->nodeType() != NodeType::LEAF)
         throw std::runtime_error("Internal DB error: merge failed, bad neighbour other type");
+
     auto otherNode = std::dynamic_pointer_cast<LeafNode>(other);
-    auto[firstKeysBegin, firstKeysEnd] = this->getKeysRange();
-    auto[secondKeysBegin, secondKeysEnd] = otherNode->getKeysRange();
-    auto[firstValuesBegin, firstValuesEnd] = this->getValuesRange();
-    auto[secondValuesBegin, secondValuesEnd] = otherNode->getValuesRange();
-    // move keys
-    std::move(secondKeysBegin, secondKeysEnd, firstKeysEnd);
-    // move values
-    std::move(secondValuesBegin, secondValuesEnd, firstValuesEnd);
+    auto[otherKeysBegin, otherKeysEnd] = otherNode->getKeysRange();
+    auto[otherValuesBegin, otherValuesEnd] = otherNode->getValuesRange();
+
+    // move keys and values to the end of this node
+    std::move(otherKeysBegin, otherKeysEnd, this->getKeysRange().second);
+    std::move(otherValuesBegin, otherValuesEnd, this->getValuesRange().second);
     this->markChanged();
     otherNode->remove();
 }
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-auto
+typename LeafNode<TKey, TValue, TDegree>::KeysRange
 LeafNode<TKey, TValue, TDegree>::getKeysRange() {
-    auto begin = keys.begin();
-    auto end = std::find_if(keys.rbegin(), keys.rend(), [](auto x){ return x != std::nullopt;}).base();
-    return std::pair(begin, end);
+    return std::pair(keys.begin(),
+                     std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x; }).base());
 }
+
 
 template<typename TKey, typename TValue, size_t TDegree>
-auto
+typename LeafNode<TKey, TValue, TDegree>::ValuesRange
 LeafNode<TKey, TValue, TDegree>::getValuesRange() {
-    auto begin = values.begin();
-    auto end = std::find_if(values.rbegin(), values.rend(), [](auto x){ return x != std::nullopt;}).base();
-    return std::pair(begin, end);
+    return std::pair(values.begin(),
+                     std::find_if(values.rbegin(), values.rend(), [](auto x) { return x; }).base());
 }
 
+
+template<typename TKey, typename TValue, size_t TDegree>
+typename LeafNode<TKey, TValue, TDegree>::KeysReverseRange
+LeafNode<TKey, TValue, TDegree>::getKeysRangeReverse() {
+    auto[b, e] = this->getKeysRange();
+    return std::pair(std::reverse_iterator(e), std::reverse_iterator(b));
+}
+
+
+template<typename TKey, typename TValue, size_t TDegree>
+typename LeafNode<TKey, TValue, TDegree>::ValuesReverseRange
+LeafNode<TKey, TValue, TDegree>::getValuesRangeReverse() {
+    auto[b, e] = this->getValuesRange();
+    return std::pair(std::reverse_iterator(e), std::reverse_iterator(b));
+}
 
 
 #endif //SBD2_LEAF_NODE_HH
