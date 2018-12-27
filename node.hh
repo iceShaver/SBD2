@@ -39,7 +39,7 @@ public:
     virtual TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const *const key,
                                                   TValue const *const value,
                                                   size_t nodeOffset) = 0;
-    virtual void mergeWith(std::shared_ptr<Node> &node) = 0;
+    virtual void mergeWith(std::shared_ptr<Node> &node, TKey const*const key = nullptr) = 0;
     virtual std::ostream &print(std::ostream &o) const = 0;
     virtual std::stringstream &print(std::stringstream &ss) const = 0;
     virtual bool contains(TKey const &key) const = 0;

@@ -83,7 +83,7 @@ public:
 
     void splitAndAddRecord(std::shared_ptr<ANode> node,
                            TKey const &key, TValue const &value, size_t addedNodeOffset = 0);
-    void merge(std::shared_ptr<ANode> node);
+    void merge(std::shared_ptr<ANode> node, TKey const *const key = nullptr);
     std::shared_ptr<ANode> getNodeUnfilledNeighbour(std::shared_ptr<ANode> node);
     std::pair<std::shared_ptr<ANode>, std::shared_ptr<ANode>> getNodeNeghbours(std::shared_ptr<ANode> node);
     BPlusTree &print();
@@ -454,7 +454,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t file
     this->file.clear(); // since we read max of both nodes, we can go eof
     header = readData[0];
     readData.erase(readData.begin());
-    if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node!");
+    if (std::bitset<8>(header)[0] == true) throw std::runtime_error("Tried to read empty node at: " + std::to_string(fileOffset));
     std::shared_ptr<ANode> result = nullptr;
     if (std::bitset<8>(header)[1] == static_cast<int>(NodeType::INNER))
         result = std::make_shared<AInnerNode>(fileOffset, this->file);
@@ -520,33 +520,58 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::tryCompensateAndAdd(
     // if node is root -> can't compensate
     if (node->parent == nullptr) return false;
     std::shared_ptr<ANode> selectedNeighbour = nullptr;
+    TKey middleKey;
     // compensation while adding new key
     if (key) {
-        selectedNeighbour = getNodeUnfilledNeighbour(node);
+        auto[left, right] = getNodeNeghbours(node);
+        if(left && !left->full()){
+            right = nullptr;
+            middleKey = left->compensateWithAndReturnMiddleKey(node, key, value, nodeOffset);
+            std::dynamic_pointer_cast<AInnerNode>(node->parent)
+                    ->setKeyBetweenPtrs(left->fileOffset, node->fileOffset, middleKey);
+            left = nullptr;
+        }else if(right && !right->full()){
+            left = nullptr;
+            middleKey = node->compensateWithAndReturnMiddleKey(right, key, value, nodeOffset);
+            std::dynamic_pointer_cast<AInnerNode>(node->parent)
+                    ->setKeyBetweenPtrs(node->fileOffset, right->fileOffset, middleKey);
+            right = nullptr;
+        }else{
+            return false;
+        }
         // if no unfilled neighbours -> can't compensate
     } else { // compensation after deletion
-        auto[leftNeighbour, rightNeighbour] = getNodeNeghbours(node);
-        if (leftNeighbour &&
-            (leftNeighbour->fillKeysSize() + node->fillKeysSize() >= 2 * node->degree())) {
-            selectedNeighbour = leftNeighbour;
-        } else if (rightNeighbour && (rightNeighbour->fillKeysSize() + node->fillKeysSize() >= 2 * node->degree())) {
-            selectedNeighbour = rightNeighbour;
+        auto[left, right] = getNodeNeghbours(node);
+        if (left &&
+            (left->fillKeysSize() + node->fillKeysSize() >= 2 * node->degree())) {
+            right = nullptr;
+            middleKey = left->compensateWithAndReturnMiddleKey(node, key, value, nodeOffset);
+            std::dynamic_pointer_cast<AInnerNode>(node->parent)
+                    ->setKeyBetweenPtrs(left->fileOffset, node->fileOffset, middleKey);
+            left = nullptr;
+        } else if (right && (right->fillKeysSize() + node->fillKeysSize() >= 2 * node->degree())) {
+            left = nullptr;
+            middleKey = node->compensateWithAndReturnMiddleKey(right, key, value, nodeOffset);
+            std::dynamic_pointer_cast<AInnerNode>(node->parent)
+                    ->setKeyBetweenPtrs(node->fileOffset, right->fileOffset, middleKey);
+            right = nullptr;
+        }else{
+            return false;
         }
 
     }
     // no suitable neighbour -> unable to compensate
-    if (selectedNeighbour == nullptr) return false;
+//    if (selectedNeighbour == nullptr) return false;
 
-    TKey middleKey;
-    if(*node < *selectedNeighbour) {
-        middleKey = node->compensateWithAndReturnMiddleKey(selectedNeighbour, key, value, nodeOffset);
-    }else{
-        middleKey = selectedNeighbour->compensateWithAndReturnMiddleKey(node, key, value, nodeOffset);
-    }
+//    if (*node < *selectedNeighbour) {
+//        middleKey = node->compensateWithAndReturnMiddleKey(selectedNeighbour, key, value, nodeOffset);
+//    } else {
+//        middleKey = selectedNeighbour->compensateWithAndReturnMiddleKey(node, key, value, nodeOffset);
+//    }
 
     // update parent with middle key
-    auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
-    parent->setKeyBetweenPtrs(node->fileOffset, selectedNeighbour->fileOffset, middleKey);
+   // auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
+   // parent->setKeyBetweenPtrs(node->fileOffset, selectedNeighbour->fileOffset, middleKey);
     // compensation succeeded
     return true;
 }
@@ -580,7 +605,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getNodeUnfilledNeigh
     // left neighbour found
     if (leftNodeOffset) {
         auto result = BPlusTree::readNode(*leftNodeOffset);
-        if (!result->full()){
+        if (!result->full()) {
             result->parent = node->parent;
             return result;
         }
@@ -593,7 +618,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getNodeUnfilledNeigh
     // right neighbour found
     if (rightNodeOffset) {
         auto result = BPlusTree::readNode(*rightNodeOffset);
-        if (!result->full()){
+        if (!result->full()) {
             result->parent = node->parent;
             return result;
         }
@@ -697,13 +722,34 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::splitAndAddRecord(st
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::merge(std::shared_ptr<BPlusTree::ANode> node) {
+void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::merge(std::shared_ptr<BPlusTree::ANode> node,
+                                                                       TKey const *const key) {
     // get neighbour to merge with
-    auto selectedNeighbour = this->getNodeUnfilledNeighbour(node);
-    if(selectedNeighbour == nullptr){
+    //auto selectedNeighbour = this->getNodeUnfilledNeighbour(node);
+    TKey oldKey;
+    if(node->nodeType() == NodeType::LEAF) {
+        oldKey = std::dynamic_pointer_cast<ALeafNode>(node)->getLastKey();
+    }
+    auto[left, right] = this->getNodeNeghbours(node);
+    //static TKey a =  2137;
+    if(left) {
+        right = nullptr;
+        // get max key of left descendant
+        auto key = std::dynamic_pointer_cast<AInnerNode>(left->parent)->getKeyBetweenPtrs(left->fileOffset, node->fileOffset);
+        left->mergeWith(node, &key);
+        node = left;
+        left = nullptr;
+    }else if(right) {
+        left = nullptr;
+        node->mergeWith(right, key);
+        right = nullptr;
+    }else{
         throw std::runtime_error("Internal error: merge: no selectedNeighbour");
     }
-    // check if sum of sizes and additional key from parent is acceptable (should be in correct tree)
+//    if (selectedNeighbour == nullptr) {
+//        throw std::runtime_error("Internal error: merge: no selectedNeighbour");
+//    }
+    /*// check if sum of sizes and additional key from parent is acceptable (should be in correct tree)
     if ((node->fillKeysSize() + selectedNeighbour->fillKeysSize() + 1 > 2 * node->degree()) ||
         node->fillKeysSize() + selectedNeighbour->fillKeysSize() < node->degree()) {
         throw std::runtime_error(
@@ -711,32 +757,52 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::merge(std::shar
                 + std::to_string(node->fillKeysSize()) +
                 " and "
                 + std::to_string(selectedNeighbour->fillKeysSize()));
-    }
+    }*/
     // merge node
-    if(*node < *selectedNeighbour){
-        node->mergeWith(selectedNeighbour);
-        selectedNeighbour = nullptr;
-    }else {
-        selectedNeighbour->mergeWith(node);
-        node = selectedNeighbour;
+
+//    if (*node < *selectedNeighbour) {
+//        node->mergeWith(selectedNeighbour, key);
+//        selectedNeighbour = nullptr;
+//    } else {
+//        selectedNeighbour->mergeWith(node, key);
+//        node = selectedNeighbour;
+//    }
+
+    // update parent key with new last key
+    TKey lastKey;
+    if(node->nodeType() == NodeType::LEAF) {
+        auto leafNode = std::dynamic_pointer_cast<ALeafNode>(node);
+        lastKey = leafNode->getLastKey();
+        std::shared_ptr<AInnerNode> parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
+        while (parent != nullptr) {
+            if (parent->contains(oldKey)) {
+                parent->swapKeys(oldKey, lastKey);
+            }
+            parent = std::dynamic_pointer_cast<AInnerNode>(parent->parent);
+        }
     }
 
     auto parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
 
     // remove out-of-date descendant and key
-    auto nodeState = parent->removeKeyOffsetAfter(node->fileOffset); // Do not remove that key when performing merge
+    auto nodeState = parent->removeKeyOffsetAfter(
+            node->fileOffset); // Do not remove that key when performing merge
 
     // parent node is valid
-    if(nodeState == NodeState::OK)
+    if (nodeState == NodeState::OK)
         return;
 
-
+    if(parent == root){
+        root->markEmpty();
+        root = node;
+        return;
+    }
     // parent node is too small
     if (nodeState & NodeState::TOO_SMALL) {
         // try compensate with neighbour
         bool compensationSuccess = tryCompensateAndAdd(parent);
         if (!compensationSuccess) {
-            merge(parent);
+            merge(parent, &lastKey);
         }
     }
 
@@ -833,7 +899,7 @@ void
 BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::deleteRecord(TKey const &key) {
     auto node = this->findProperLeaf(key);
     if (!node->contains(key)) {
-        std::cout << "Key " << key << "doesn't exist\n";
+        std::cout << "Key " << key << " doesn't exist\n";
         return;
     }
 
@@ -851,8 +917,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::deleteRecord(TKey co
         std::shared_ptr<AInnerNode> parent = std::dynamic_pointer_cast<AInnerNode>(node->parent);
         while (parent != nullptr) {
             if (parent->contains(key)) {
-                parent->swapKeys(key, *lastKey);
-                break;
+                parent->swapKeys(key, lastKey);
             }
             parent = std::dynamic_pointer_cast<AInnerNode>(parent->parent);
         }
@@ -1028,7 +1093,7 @@ void BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::printFile() {
             }
             std::cout << "empty ";
 
-        }else {
+        } else {
             readNode(offset)->print(std::cout);
         }
 
@@ -1114,6 +1179,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getNodesCount(std::s
         this->getNodesCount(this->readNode(*descendant), counters);
     }
 }
+
+
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getDiskUtilizationPercent() {
     uint64_t emptySpaceCounter = 0u;
@@ -1124,20 +1191,23 @@ auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::getDiskUtilizat
         auto nodeHeader = file.read<char>(offset);
         if (file.eof()) break;
         if (std::bitset<8>(nodeHeader)[0] == true) {
-            std::cout << "empty ";
             if (std::bitset<8>(nodeHeader)[1] == static_cast<int>(NodeType::LEAF)) {
                 emptySpaceCounter += ALeafNode::BytesSize() + 1;
             } else {
                 emptySpaceCounter += AInnerNode::BytesSize() + 1;
             }
-            continue;
+        } else {
+            if (std::bitset<8>(nodeHeader)[1] == static_cast<int>(NodeType::LEAF)) {
+                fullSpaceCounter += ALeafNode::BytesSize() + 1;
+            } else {
+                fullSpaceCounter += AInnerNode::BytesSize() + 1;
+            }
         }
         // not empty -> search next
         auto stepSize = (std::bitset<8>(nodeHeader)[1] == static_cast<int>(NodeType::LEAF))
                         ? ALeafNode::BytesSize()
                         : AInnerNode::BytesSize();
         offset += stepSize + 1;
-        fullSpaceCounter = stepSize + 1;
     }
     file.clear();
     return 100 * static_cast<double>(fullSpaceCounter) / (emptySpaceCounter + fullSpaceCounter);

@@ -32,7 +32,7 @@ public:
                                           TValue const *const value,
                                           size_t nodeOffset) override;
 
-    void mergeWith(std::shared_ptr<Base>& other) override;
+    void mergeWith(std::shared_ptr<Base>& other, TKey const*const key = nullptr) override;
     std::vector<std::pair<TKey, TValue>> getRecords() const;
     auto getLastRecordIndex() const;
     auto getKeysRange();
@@ -335,8 +335,9 @@ LeafNode<TKey, TValue, TDegree>::deleteRecord(TKey const &key) {
 
 }
 template<typename TKey, typename TValue, size_t TDegree>
-auto LeafNode<TKey, TValue, TDegree>::getLastKey() const {
-    return *std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; });
+auto
+LeafNode<TKey, TValue, TDegree>::getLastKey() const {
+    return **std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x != std::nullopt; });
 }
 
 
@@ -357,7 +358,7 @@ size_t LeafNode<TKey, TValue, TDegree>::degree() {
 
 template<typename TKey, typename TValue, size_t TDegree>
 void
-LeafNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &other) {
+LeafNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &other, TKey const*const key) {
     if (other->nodeType() != NodeType::LEAF)
         throw std::runtime_error("Internal DB error: merge failed, bad neighbour other type");
     auto otherNode = std::dynamic_pointer_cast<LeafNode>(other);

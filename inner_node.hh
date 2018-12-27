@@ -28,11 +28,11 @@ public:
     TKey compensateWithAndReturnMiddleKey(std::shared_ptr<Base> node, TKey const *const key,
                                           TValue const *const value,
                                           size_t nodeOffset) override;
-    void mergeWith(std::shared_ptr<Base> &node)override;
+    void mergeWith(std::shared_ptr<Base> &node, TKey const*const key = nullptr)override;
     bool full() const override;
     InnerNode &add(TKey const &key, size_t descendantOffset);
     InnerNode &setKeyBetweenPtrs(size_t aPtr, size_t bPtr, TKey const &key);
-    NodeState removeKeyOffsetAfter(size_t offset);
+    auto removeKeyOffsetAfter(size_t offset);
     auto getKeysRange();
     auto getDescendantsRange();
     void swapKeys(TKey const &oldKey, TKey const &newKey);
@@ -306,7 +306,7 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
 
 template<typename TKey, typename TValue, size_t TDegree>
 void
-InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node) {
+InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node, TKey const*const key) {
     if (node->nodeType() != NodeType::INNER)
         throw std::runtime_error("Internal DB error: merge failed, bad neighbour node type");
     auto otherNode = std::dynamic_pointer_cast<InnerNode>(node);
@@ -314,14 +314,11 @@ InnerNode<TKey, TValue, TDegree>::mergeWith(std::shared_ptr<Base> &node) {
     auto[secondKeysBegin, secondKeysEnd] = otherNode->getKeysRange();
     auto[firstDescendantsBegin, firstDescendantsEnd] = this->getDescendantsRange();
     auto[secondDescendantsBegin, secondDescendantsEnd] = otherNode->getDescendantsRange();
-    std::move(secondKeysBegin, secondKeysEnd, firstKeysEnd);
+    if(key) *firstKeysEnd = *key;
+    std::move(secondKeysBegin, secondKeysEnd, firstKeysEnd + 1);
     std::move(secondDescendantsBegin, secondDescendantsEnd, firstDescendantsEnd);
     this->markChanged();
     otherNode->remove();
-
-
-
-
 
 }
 
@@ -427,6 +424,8 @@ size_t
 InnerNode<TKey, TValue, TDegree>::getLastDescendantOffset() const {
     return **std::find_if(descendants.rbegin(), descendants.rend(), [](auto x) { return x != std::nullopt; });
 }
+
+
 template<typename TKey, typename TValue, size_t TDegree>
 void InnerNode<TKey, TValue, TDegree>::swapKeys(TKey const &oldKey, TKey const &newKey) {
 
@@ -470,7 +469,7 @@ auto InnerNode<TKey, TValue, TDegree>::getDescendantsRange() {
 
 
 template<typename TKey, typename TValue, size_t TDegree>
-NodeState
+auto
 InnerNode<TKey, TValue, TDegree>::removeKeyOffsetAfter(size_t offset) {
     int i = 0;
     for (auto &o:descendants) {
@@ -492,12 +491,15 @@ InnerNode<TKey, TValue, TDegree>::removeKeyOffsetAfter(size_t offset) {
         return NodeState::TOO_SMALL;
     return NodeState::OK;
 }
+
+
 template<typename TKey, typename TValue, size_t TDegree>
 bool
 InnerNode<TKey, TValue, TDegree>::operator<(Base const &rhs) const {
     return *keys[0] < *dynamic_cast<InnerNode const*>(&rhs)->keys[0];
 
 }
+
 
 
 #endif //SBD2_INNER_NODE_HH
