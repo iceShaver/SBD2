@@ -110,6 +110,8 @@ void Dbms::CommandLineLoop() {
 
 void Dbms::ProcessInputLine(std::string const &line) {
     auto cmd = line.substr(0, line.find(' '));
+    if(cmd[0]=='#')
+        return;
     auto firstWhitechar = line.find(' ');
     auto params = firstWhitechar == std::string::npos ? "" : line.substr(firstWhitechar + 1);
     auto foundIter = commands.find(cmd);
@@ -288,7 +290,7 @@ void Dbms::UpdateRecord(std::string const &params) {
         std::cout << e.what() << '\n';
         return;
     } catch (std::runtime_error const &e) {
-        std::cout << "Error while adding record:\n";
+        std::cout << "Error while updating record:\n";
         std::cout << e.what() << '\n';
         return;
     }

@@ -20,7 +20,7 @@ class Record;
 
 
 class Dbms final {
-    using BTreeType = BPlusTree<int64_t, Record, 1, 4>;
+    using BTreeType = BPlusTree<int64_t, Record, 1, 1>;
 
 public:
     static int Main(int argc, char **argv);

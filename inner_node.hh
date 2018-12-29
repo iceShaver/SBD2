@@ -39,6 +39,7 @@ public:
     auto getKeysRange();
     auto getDescendantsRange();
     auto getDescendantsOfKey(TKey const &key) -> std::pair<NodeOffset, NodeOffset>;
+    auto getPrecedingKey(NodeOffset nodeOffset) -> std::optional<TKey>;
     auto swapKeys(TKey const &oldKey, TKey const &newKey) -> void;
     auto getNextDescendantOffset(NodeOffset offset) const -> std::optional<NodeOffset>;
     auto getPrevDescendantOffset(NodeOffset offset) const -> std::optional<NodeOffset>;
@@ -242,7 +243,7 @@ InnerNode<TKey, TValue, TDegree>::compensateWithAndReturnMiddleKey(std::shared_p
     }
 
     // get middleKey and middleDescendant
-    auto middleKeyIterator = allKeys.begin() + (allKeys.size() - 1) / 2;
+    auto middleKeyIterator = allKeys.begin() + (allKeys.size()) / 2;
     auto middleDescendantIterator = allDescendants.begin() + (allDescendants.size() - 1) / 2;
 
     // if size of descendants and keys is bad -> something went wrong
@@ -441,11 +442,20 @@ InnerNode<TKey, TValue, TDegree>::removeKeyOffsetAfter(NodeOffset offset) {
 
 template<typename TKey, typename TValue, size_t TDegree>
 auto
-InnerNode<TKey, TValue, TDegree>::getDescendantsOfKey(TKey const &key) -> std::pair<NodeOffset, NodeOffset>{
+InnerNode<TKey, TValue, TDegree>::getDescendantsOfKey(TKey const &key) -> std::pair<NodeOffset, NodeOffset> {
     auto[keysBegin, keysEnd] = getKeysRange();
     auto i = std::lower_bound(keysBegin, keysEnd, key) - keysBegin;
-    return std::pair(*descendants[i], *descendants[i + 1]);
+    auto l = *descendants[i];
+    auto p = *descendants[i + 1];
+    return std::pair(l, p);
 
+}
+template<typename TKey, typename TValue, size_t TDegree>
+auto InnerNode<TKey, TValue, TDegree>::getPrecedingKey(InnerNode::NodeOffset nodeOffset) -> std::optional<TKey> {
+    auto [b, e] = getDescendantsRange();
+    auto result = std::find(b, e, nodeOffset);
+    if(result == e) return std::nullopt;
+    return keys[result - b];
 }
 
 

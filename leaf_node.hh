@@ -48,7 +48,7 @@ public:
     auto getKeysRangeReverse() -> KeysReverseRange;
     auto getValuesRange() -> ValuesRange;
     auto getValuesRangeReverse() -> ValuesReverseRange;
-    auto getLastKey() const { return **std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x; }); }
+    auto getLastKey() const { return *std::find_if(keys.rbegin(), keys.rend(), [](auto x) { return x; }); }
     auto setRecords(KeysValuesIterator it1, KeysValuesIterator it2) -> void;
     auto print(std::stringstream &ss) const -> std::stringstream & override;
     auto fillKeysSize() const -> size_t override;
