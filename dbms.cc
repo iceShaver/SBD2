@@ -13,7 +13,7 @@
 #include <cstring>
 
 
-int Dbms::Main(int argc, char **argv) {
+auto Dbms::Main(int argc, char **argv) -> int {
 
     InitCommands();
     InitAutocompletion();
@@ -23,7 +23,7 @@ int Dbms::Main(int argc, char **argv) {
 }
 
 
-void Dbms::InitCommands() {
+auto Dbms::InitCommands() -> void{
     // @formatter:off
     commands = {
             // dbms operations
@@ -60,10 +60,9 @@ void Dbms::InitCommands() {
 }
 
 
-void Dbms::InitAutocompletion() {
+auto Dbms::InitAutocompletion() -> void{
     // set quote characters
     rl_completer_quote_characters = "\"'";
-
     // set function responsible for autocomplete
     rl_attempted_completion_function = [](const char *text, int start, int end) -> char ** {
         // if not beginning of command then don't complete
@@ -92,7 +91,7 @@ void Dbms::InitAutocompletion() {
 }
 
 
-void Dbms::CommandLineLoop() {
+auto Dbms::CommandLineLoop()->void {
     while (true) {
         char *line = readline((Tools::Terminal::getColorString(Tools::Terminal::Color::FG_GREEN) + prompt + "> " +
                                Tools::Terminal::getColorString(Tools::Terminal::Color::FG_DEFAULT)).c_str());
@@ -108,7 +107,7 @@ void Dbms::CommandLineLoop() {
 }
 
 
-void Dbms::ProcessInputLine(std::string const &line) {
+auto Dbms::ProcessInputLine(std::string const &line) -> void {
     auto cmd = line.substr(0, line.find(' '));
     if(cmd[0]=='#')
         return;
@@ -124,7 +123,7 @@ void Dbms::ProcessInputLine(std::string const &line) {
 }
 
 
-void Dbms::PrintHelp(std::string const &params) {
+auto Dbms::PrintHelp(std::string const &params) -> void{
     std::cout << "Available commands:\n";
     for (auto&[cmd, info] : commands) {
         auto&[func, desc] = info;
@@ -133,13 +132,14 @@ void Dbms::PrintHelp(std::string const &params) {
 }
 
 
-void Dbms::Exit(std::string const &params) {
+auto Dbms::Exit(std::string const &params) -> void {
     std::cout << "Exiting...\n";
     tree = nullptr;
     ::exit(0);
 }
 
-void Dbms::LoadDbFile(std::string const &params) {
+
+auto Dbms::LoadDbFile(std::string const &params) -> void {
     if (tree) {
         std::cout << "You have to close current db before opening next\n";
         return;
@@ -160,7 +160,7 @@ void Dbms::LoadDbFile(std::string const &params) {
 }
 
 
-void Dbms::CreateDbFile(std::string const &params) {
+auto Dbms::CreateDbFile(std::string const &params) -> void {
     if (tree) {
         std::cout << "You have to close current db before creating new\n";
         return;
@@ -183,7 +183,7 @@ void Dbms::CreateDbFile(std::string const &params) {
 }
 
 
-void Dbms::CloseDbFile(std::string const &params) {
+auto Dbms::CloseDbFile(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -193,17 +193,16 @@ void Dbms::CloseDbFile(std::string const &params) {
 }
 
 
-void Dbms::PrintDbFile(std::string const &params) {
+auto Dbms::PrintDbFile(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
     }
-    std::cout << "Printing db file:\n";
     tree->printFile();
 }
 
 
-void Dbms::CreateRecord(std::string const &params) {
+auto Dbms::CreateRecord(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -235,7 +234,7 @@ void Dbms::CreateRecord(std::string const &params) {
 }
 
 
-void Dbms::ReadRecord(std::string const &params) {
+auto Dbms::ReadRecord(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -265,7 +264,7 @@ void Dbms::ReadRecord(std::string const &params) {
 }
 
 
-void Dbms::UpdateRecord(std::string const &params) {
+auto Dbms::UpdateRecord(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -297,7 +296,7 @@ void Dbms::UpdateRecord(std::string const &params) {
 }
 
 
-void Dbms::DeleteRecord(std::string const &params) {
+auto Dbms::DeleteRecord(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -325,7 +324,7 @@ void Dbms::DeleteRecord(std::string const &params) {
 }
 
 
-void Dbms::PrintRecords(std::string const &params) {
+auto Dbms::PrintRecords(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -341,7 +340,9 @@ void Dbms::PrintRecords(std::string const &params) {
     }
     std::cout << "Total count: " << count << " records\n";
 }
-void Dbms::PrintRecordsDescending(std::string const &params) {
+
+
+auto Dbms::PrintRecordsDescending(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -357,7 +358,8 @@ void Dbms::PrintRecordsDescending(std::string const &params) {
     std::cout << "Total count: " << count << " records\n";
 }
 
-void Dbms::PrintStatistics(std::string const &params) {
+
+auto Dbms::PrintStatistics(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -381,13 +383,11 @@ void Dbms::PrintStatistics(std::string const &params) {
     cout << std::setw(40) << std::left << "Disk IO (session): " << "R: " << tree->getSessionDiskReadsCout() << " W: "
          << tree->getSessionDiskWritesCount() << " Sum: "
          << tree->getSessionDiskReadsCout() + tree->getSessionDiskWritesCount() << '\n';
-    cout << std::setw(40) << std::left << "Disk Memory utilization: " << tree->getDiskUtilizationPercent() << " %\n";
-    //cout << std::setw(40) << std::left << "RAM usage: " << this->ramUsage() << " %\n";
     tree->enableCounters();
 }
 
 
-void Dbms::LoadTestFile(std::string const &params) {
+auto Dbms::LoadTestFile(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -415,7 +415,7 @@ void Dbms::LoadTestFile(std::string const &params) {
 }
 
 
-void Dbms::GenTestFile(std::string const &params) {
+auto Dbms::GenTestFile(std::string const &params) -> void {
     if (params.empty()) {
         std::cout << "Missing parameters: filename size\n";
         return;
@@ -442,31 +442,39 @@ void Dbms::GenTestFile(std::string const &params) {
         std::cout << "Unable to open file: " << fs::absolute(filePath) << '\n';
         return;
     }
-    auto uniqueGenerator = UniqueGenerator(uint64_t(0), 10 * size);
+    auto uniqueGenerator = UniqueGenerator(uint64_t(0), 100 * size);
     auto ops = {"create", "update", "delete"};
-    for (int i = 0; i < size; ++i) {
+    for (int i = 0; i < size;) {
         auto randomRecord = Record::Random();
-        if (Tools::probability(0.10) && uniqueGenerator.getDrawedNumbers().size()) {
+        if ((i<size/2 && Tools::probability(0.20)) || (i>size/2&&Tools::probability(0.80))) {
+            if(uniqueGenerator.getDrawedNumbers().empty()){
+                continue;
+            }
             auto index = Tools::random(0ul, uniqueGenerator.getDrawedNumbers().size() - 1);
             auto it = uniqueGenerator.getDrawedNumbers().begin();
             std::advance(it, index);
             auto key = *it;
-            fileHandle << "update " << key << ' '
-                       << +randomRecord.get_grade(1) << ' '
-                       << +randomRecord.get_grade(2) << ' '
-                       << +randomRecord.get_grade(3) << '\n';
+            if(Tools::probability(0.1)) {
+                fileHandle << "update " << key << ' '
+                           << +randomRecord.get_grade(1) << ' '
+                           << +randomRecord.get_grade(2) << ' '
+                           << +randomRecord.get_grade(3) << '\n';
+            } else{
+                fileHandle << "delete " << key << '\n';
+                uniqueGenerator.getDrawedNumbers().erase(it);
+            }
         } else {
             fileHandle << "create " << uniqueGenerator.getRandom() << ' '
                        << +randomRecord.get_grade(1) << ' '
                        << +randomRecord.get_grade(2) << ' '
                        << +randomRecord.get_grade(3) << '\n';
         }
-
+        ++i;
     }
 }
 
 
-void Dbms::PrintTree(std::string const &params) {
+auto Dbms::PrintTree(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -477,7 +485,7 @@ void Dbms::PrintTree(std::string const &params) {
 }
 
 
-void Dbms::DrawTree(std::string const &params) {
+auto Dbms::DrawTree(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -487,7 +495,7 @@ void Dbms::DrawTree(std::string const &params) {
 }
 
 
-void Dbms::TruncateTree(std::string const &params) {
+auto Dbms::TruncateTree(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;
@@ -496,7 +504,7 @@ void Dbms::TruncateTree(std::string const &params) {
 }
 
 
-bool Dbms::ConfirmOverridingExistingFile(fs::path const &path) {
+auto Dbms::ConfirmOverridingExistingFile(fs::path const &path) -> bool {
     if (fs::exists(path)) {
         std::cout << "Given file exists: " << fs::absolute(path) << "\nOverwrite? [Y/N]: ";
         std::string result;
@@ -511,7 +519,7 @@ bool Dbms::ConfirmOverridingExistingFile(fs::path const &path) {
 }
 
 
-void Dbms::LastOpStats(std::string const &params) {
+auto Dbms::LastOpStats(std::string const &params) -> void {
     if (!tree) {
         std::cout << "No opened database\n";
         return;

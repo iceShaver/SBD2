@@ -22,6 +22,7 @@ constexpr const int GRADES_NUMBER = 3;
 class Record final {
 public:
     using data_t = uint64_t;
+    using BytesArray = std::array<uint8_t, sizeof(data_t)>;
     static constexpr auto const GRADE_MAX = 100u;
     static constexpr auto const GRADE_MIN = 0u;
 
@@ -35,18 +36,20 @@ public:
     explicit Record(std::string const &string);
     Record(int grade1, int grade2, int grade3);
     ~Record() = default;
-    void update(Record const &rec);
 
-    uint64_t get_student_id() const;
-    uint8_t get_grade(int gradeNumber) const;
-    std::array<uint8_t, sizeof(data_t)> to_bytes() const;
-    friend std::ostream &operator<<(std::ostream &os, const Record &record);
+    auto update(Record const &rec) -> void;
 
-    static Record Random();
-    bool operator<(Record const &rhs) const { return get_student_id() < rhs.get_student_id(); }
-    bool operator>(Record const &rhs) const { return get_student_id() > rhs.get_student_id(); }
-    bool operator<=(Record const &rhs) const { return get_student_id() <= rhs.get_student_id(); }
-    bool operator>=(Record const &rhs) const { return get_student_id() >= rhs.get_student_id(); }
+    auto get_student_id() const -> uint64_t;
+    auto get_grade(int gradeNumber) const -> uint8_t;
+    auto to_bytes() const -> BytesArray ;
+    friend auto operator<<(std::ostream &os, const Record &record) -> std::ostream &;
+    friend auto operator<<(std::stringstream &s, const Record &record) -> std::stringstream &;
+
+    static auto Random() -> Record;
+    auto operator<(Record const &rhs) const -> bool { return get_student_id() < rhs.get_student_id(); }
+    auto operator>(Record const &rhs) const -> bool { return get_student_id() > rhs.get_student_id(); }
+    auto operator<=(Record const &rhs) const -> bool { return get_student_id() <= rhs.get_student_id(); }
+    auto operator>=(Record const &rhs) const -> bool { return get_student_id() >= rhs.get_student_id(); }
 
 private:
     Record(uint64_t student_id, int grade1, int grade2, int grade3);

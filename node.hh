@@ -17,24 +17,27 @@ template<typename TKey, typename TValue> class Node;
 template<typename TKey, typename TValue, size_t TDegree> class InnerNode;
 template<typename TKey, typename TValue, size_t TDegree> class LeafNode;
 
+
+template<typename TKey, typename TValue> auto &operator<<(std::ostream &s, Node<TKey, TValue> &node) {
+    return node.print(s);
+}
+
+template<typename TKey, typename TValue> auto &operator<<(std::stringstream &s, Node<TKey, TValue> &node) {
+    return node.print(s);
+}
+
+using NodeOffset = size_t;
 using Byte = char;
-template<typename TKey, typename TValue> auto &operator<<(std::ostream &s, Node<TKey, TValue> const &node) {
-    return node.print(s);
-}
-template<typename TKey, typename TValue> auto &operator<<(std::stringstream &s, Node<TKey, TValue> const &node) {
-    return node.print(s);
-}
 
 enum class NodeType { INNER, LEAF };
 enum NodeState : uint8_t { OK = 0, DELETED_LAST = 1, TOO_SMALL = 2 };
 
+
 template<typename TKey, typename TValue>
 class Node {
 
-    friend auto &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> const &node);
-    friend auto &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> const &node);
-
-
+    friend auto &operator<<<TKey, TValue>(std::ostream &os, Node<TKey, TValue> &node);
+    friend auto &operator<<<TKey, TValue>(std::stringstream &ss, Node<TKey, TValue> &node);
     template<typename, typename, size_t, size_t> friend class BPlusTree;
 
 
@@ -47,18 +50,17 @@ public:
     virtual auto nodeType() const -> NodeType = 0;
     virtual auto compensateWithAndReturnMiddleKey(std::shared_ptr<Node> node, TKey const *key,
                                                   TValue const *value,
-                                                  size_t nodeOffset)
-    -> TKey = 0;
+                                                  size_t nodeOffset) -> TKey = 0;
     virtual auto mergeWith(std::shared_ptr<Node> &node, TKey const *key = nullptr) -> void = 0;
-    virtual auto print(std::ostream &o) const -> std::ostream & = 0;
-    virtual auto print(std::stringstream &ss) const -> std::stringstream & = 0;
+    virtual auto print(std::ostream &o) -> std::ostream & = 0;
+    virtual auto print(std::stringstream &ss) -> std::stringstream & = 0;
     virtual auto contains(TKey const &key) const -> bool = 0;
     virtual auto full() const -> bool = 0;
     virtual auto degree() -> size_t = 0;
     virtual auto fillKeysSize() const -> size_t = 0;
 
-    auto load(std::vector<char> const &bytes);
-    auto unload();
+    auto load(std::vector<char> const &bytes) -> void;
+    auto unload() -> void;
     auto markEmpty() { changed = true, empty = true; };
     auto markChanged() { changed = true; };
 
@@ -74,7 +76,6 @@ public:
     size_t fileOffset{};
 
 protected:
-    using NodeOffset = size_t;
 
     virtual size_t elementsSize() const = 0;
     virtual size_t bytesSize() const = 0;
@@ -95,6 +96,7 @@ protected:
 };
 
 
+
 template<typename TKey, typename TValue>
 Node<TKey, TValue>::Node(size_t const fileOffset, File &file, std::shared_ptr<Node> parent)
         : file(file), fileOffset(fileOffset), parent(std::move(parent)), empty(false), changed(false),
@@ -104,13 +106,15 @@ Node<TKey, TValue>::Node(size_t const fileOffset, File &file, std::shared_ptr<No
 }
 
 
-template<typename TKey, typename TValue> Node<TKey, TValue>::~Node() {
+template<typename TKey, typename TValue>
+Node<TKey, TValue>::~Node() {
     Tools::debug([this] { std::clog << "Exiting node: " << fileOffset << '\n'; }, 2);
     decCounter();
 }
 
 
-template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
+template<typename TKey, typename TValue>
+auto Node<TKey, TValue>::remove() -> void {
     Tools::debug([this] { std::clog << "Removing node: " << fileOffset << '\n'; }, 2);
     this->empty = true;
     this->changed = true;
@@ -118,7 +122,8 @@ template<typename TKey, typename TValue> void Node<TKey, TValue>::remove() {
 }
 
 
-template<typename TKey, typename TValue> std::vector<char> Node<TKey, TValue>::serialize() {
+template<typename TKey, typename TValue>
+auto Node<TKey, TValue>::serialize() -> std::vector<char> {
     auto result = std::vector<char>{};
     auto size = this->bytesSize() + 1;
     result.reserve(size);
@@ -133,8 +138,7 @@ template<typename TKey, typename TValue> std::vector<char> Node<TKey, TValue>::s
 
 
 template<typename TKey, typename TValue>
-auto
-Node<TKey, TValue>::load(std::vector<char> const &bytes) {
+auto Node<TKey, TValue>::load(std::vector<char> const &bytes) -> void{
     Tools::debug([this] { std::clog << "Constructing node from bytes: " << this->fileOffset << '\n'; }, 3);
     this->deserialize(bytes);
     this->loaded = true;
@@ -143,8 +147,7 @@ Node<TKey, TValue>::load(std::vector<char> const &bytes) {
 
 
 template<typename TKey, typename TValue>
-auto
-Node<TKey, TValue>::unload() {
+auto Node<TKey, TValue>::unload() -> void{
     if (!changed) {
         Tools::debug([this] { std::clog << "Node at " << this->fileOffset << " unchanged\n"; }, 3);
         return;

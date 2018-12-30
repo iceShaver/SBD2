@@ -16,11 +16,10 @@
 namespace fs = std::filesystem;
 
 class Record;
-//template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree> class BPlusTree;
 
 
 class Dbms final {
-    using BTreeType = BPlusTree<int64_t, Record, 1, 1>;
+    using BTreeType = BPlusTree<int64_t, Record, 2, 3>;
 
 public:
     static int Main(int argc, char **argv);
@@ -30,7 +29,6 @@ private:
     inline static void InitAutocompletion();
     inline static void CommandLineLoop();
     inline static void ProcessInputLine(std::string const &line);
-
     // Commandline methods
     inline static void Exit(std::string const &params = {});
     inline static void PrintHelp(std::string const &params = {});
@@ -52,16 +50,14 @@ private:
     inline static void ReadRecord(std::string const &params);
     inline static void UpdateRecord(std::string const &params);
     inline static void DeleteRecord(std::string const &params);
-
-
     // other tools function
     inline static bool ConfirmOverridingExistingFile(fs::path const &path);
-    // data
+
+
     inline static std::map<std::string,
             std::tuple<std::function<void(std::string const &params)>, std::string>> commands;
     inline static std::unique_ptr<BTreeType> tree;
     inline static std::string prompt = "";
-
 };
 
 

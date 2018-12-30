@@ -14,7 +14,7 @@ class UniqueGenerator final {
 public:
     UniqueGenerator(T min, T max) : uid{min, max}, min(min), max(max) {}
     T getRandom();
-    std::set<NumberType> const &getDrawedNumbers() { return drawedNumbers; }
+    std::set<NumberType> &getDrawedNumbers() { return drawedNumbers; }
 private:
     std::set<NumberType> drawedNumbers;
     std::random_device rd{};
