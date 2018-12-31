@@ -39,7 +39,6 @@ std::ostream &operator<<(std::ostream &o, BPlusTree<TKey, TValue, TInnerNodeDegr
 };
 
 
-
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 class BPlusTree final {
     struct ConfigHeader {
@@ -147,8 +146,6 @@ private:
 };
 
 
-
-
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 class BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator {
 public:
@@ -182,8 +179,6 @@ protected:
     size_t i = 0;
     BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree> *tree = nullptr;
 };
-
-
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
@@ -223,8 +218,6 @@ public:
 };
 
 
-
-
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
 class BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::ReverseIterator
         : public BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator {
@@ -258,12 +251,6 @@ public:
         return tmp;
     }; // x++
 };
-
-
-
-
-
-
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
@@ -329,8 +316,7 @@ auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::inc()
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-void
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::dec() {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::dec() -> void {
 
     if (afterEnd) {
         afterEnd = false;
@@ -384,8 +370,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::dec() {
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-std::pair<TKey, TValue>
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator*() {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator*() -> std::pair<TKey, TValue> {
     if (afterEnd)
         throw std::out_of_range("Tree iterator out of range: afterEnd");
     if (beforeBegin)
@@ -400,9 +385,8 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator*(
 
 
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-bool
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator==(
-        BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator const &other) const {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator::operator==(
+        BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::Iterator const &other) const -> bool {
     if (this->afterEnd && other.afterEnd) // if both afterEnd
         return true;
     if (this->beforeBegin && other.beforeBegin)
@@ -474,8 +458,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::~BPlusTree() {
  * @return pointer to read and loaded node
  */
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-auto
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t fileOffset) -> std::shared_ptr<ANode> {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t fileOffset) -> std::shared_ptr<ANode> {
     char header;
     auto readData = this->file.read(fileOffset,
                                     sizeof(header) + std::max(AInnerNode::BytesSize(), ALeafNode::BytesSize()));
@@ -496,8 +479,7 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::readNode(size_t file
 
 // TODO: use some index to make it work faster
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-size_t
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(NodeType nodeType) {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(NodeType nodeType) -> size_t {
     std::fpos<mbstate_t> result;
     auto currentOffset = sizeof(configHeader);
     while (true) {
@@ -540,11 +522,10 @@ BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::AllocateDiskMemory(N
  * @return true if succeeded and false if failed
  */
 template<typename TKey, typename TValue, size_t TInnerNodeDegree, size_t TLeafNodeDegree>
-auto
-BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::tryCompensateAndAdd(std::shared_ptr<ANode> node,
-                                                                                TKey const *const key,
-                                                                                TValue const *const value,
-                                                                                size_t nodeOffset) -> bool {
+auto BPlusTree<TKey, TValue, TInnerNodeDegree, TLeafNodeDegree>::tryCompensateAndAdd(std::shared_ptr<ANode> node,
+                                                                                     TKey const *const key,
+                                                                                     TValue const *const value,
+                                                                                     size_t nodeOffset) -> bool {
     if (!node) throw std::invalid_argument("Given node argument is nullptr");
 
     // if node is root -> can't compensate
