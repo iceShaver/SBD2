@@ -22,36 +22,36 @@ class Dbms final {
     using BTreeType = BPlusTree<int64_t, Record, 2, 3>;
 
 public:
-    static int Main(int argc, char **argv);
+    static auto Main(int argc, char **argv) -> int;
 
 private:
-    inline static void InitCommands();
-    inline static void InitAutocompletion();
-    inline static void CommandLineLoop();
-    inline static void ProcessInputLine(std::string const &line);
+    inline static auto InitCommands() -> void;
+    inline static auto InitAutocompletion() -> void;
+    inline static auto CommandLineLoop() -> void;
+    inline static auto ProcessInputLine(std::string const &line) -> void;
     // Commandline methods
-    inline static void Exit(std::string const &params = {});
-    inline static void PrintHelp(std::string const &params = {});
-    inline static void CreateDbFile(std::string const &params);
-    inline static void LoadDbFile(std::string const &params);
-    inline static void CloseDbFile(std::string const &params = {});
-    inline static void PrintDbFile(std::string const &params = {});
-    inline static void PrintTree(std::string const &params = {});
-    inline static void DrawTree(std::string const &params = {});
-    inline static void TruncateTree(std::string const &params = {});
-    inline static void PrintRecords(std::string const &params = {});
-    inline static void PrintRecordsDescending(std::string const &params = {});
-    inline static void PrintStatistics(std::string const &params = {});
-    inline static void LastOpStats(std::string const &params = {});
-    inline static void LoadTestFile(std::string const &params);
-    inline static void GenTestFile(std::string const &params);
+    inline static auto Exit(std::string const &params = {}) -> void;
+    inline static auto PrintHelp(std::string const &params = {}) -> void;
+    inline static auto CreateDbFile(std::string const &params) -> void;
+    inline static auto LoadDbFile(std::string const &params) -> void;
+    inline static auto CloseDbFile(std::string const &params = {}) -> void;
+    inline static auto PrintDbFile(std::string const &params = {}) -> void;
+    inline static auto PrintTree(std::string const &params = {}) -> void;
+    inline static auto DrawTree(std::string const &params = {}) -> void;
+    inline static auto TruncateTree(std::string const &params = {}) -> void;
+    inline static auto PrintRecords(std::string const &params = {}) -> void;
+    inline static auto PrintRecordsDescending(std::string const &params = {}) -> void;
+    inline static auto PrintStatistics(std::string const &params = {}) -> void;
+    inline static auto LastOpStats(std::string const &params = {}) -> void;
+    inline static auto LoadTestFile(std::string const &params) -> void;
+    inline static auto GenTestFile(std::string const &params) -> void;
     // CRUD operations
-    inline static void CreateRecord(std::string const &params);
-    inline static void ReadRecord(std::string const &params);
-    inline static void UpdateRecord(std::string const &params);
-    inline static void DeleteRecord(std::string const &params);
+    inline static auto CreateRecord(std::string const &params) -> void;
+    inline static auto ReadRecord(std::string const &params) -> void;
+    inline static auto UpdateRecord(std::string const &params) -> void;
+    inline static auto DeleteRecord(std::string const &params) -> void;
     // other tools function
-    inline static bool ConfirmOverridingExistingFile(fs::path const &path);
+    inline static auto ConfirmOverridingExistingFile(fs::path const &path) -> bool;
 
 
     inline static std::map<std::string,
